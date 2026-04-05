@@ -5,18 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>House of Jokers</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #2c3e50; color: white; text-align: center; margin: 0; padding: 10px;}
-        
+        /* === GEMENSAM HISTORISK STIL === */
+        body {
+            background-color: #cacaca; 
+            background-image: none; 
+            color: #212121; 
+            text-align: center; margin: 0; padding: 10px;
+            font-family: Georgia, 'Times New Roman', Times, serif; 
+        }
+
+        h2, h3, h4 {
+            font-weight: normal;
+            letter-spacing: 1px;
+            margin: 5px;
+        }
+
+        /* Bild-loggan */
+        .game-logo {
+            max-width: 300px;
+            width: 100%;
+            height: auto;
+            margin: 10px auto 20px;
+            display: block;
+        }
+
+        /* Den nya statusrutan */
+        #statusMessage {
+            background-color: #ffffff;
+            border: 3px solid #d4af37; 
+            color: #000000; 
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            min-width: 50%;
+            font-weight: bold;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
         /* === LOBBY UI === */
-        .lobby-box { margin-top: 50px; background: rgba(0,0,0,0.3); padding: 30px; border-radius: 10px; max-width: 400px; margin: 50px auto; }
-        .lobby-input { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; font-size: 16px; }
-        .lobby-btn { width: 45%; padding: 10px; margin: 5px 2%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; }
-        .btn-create { background: #2ecc71; color: white; }
-        .btn-create:hover { background: #27ae60; }
-        .btn-join { background: #3498db; color: white; }
-        .btn-join:hover { background: #2980b9; }
-        .btn-back { background: #7f8c8d; color: white; }
-        .btn-back:hover { background: #95a5a6; }
+        .lobby-box {
+            margin-top: 20px; 
+            background: #155724; 
+            padding: 30px; border-radius: 10px;
+            max-width: 400px; margin: 20px auto;
+            border: 3px solid #d4af37; 
+            color: #ecf0f1; 
+        }
+        .lobby-box h3 { color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+
+        .lobby-input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #7f8c8d; font-size: 16px; background: #ecf0f1; font-family: inherit;}
+        .lobby-btn { width: 45%; padding: 12px; margin: 5px 2%; border: 1px solid transparent; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; font-family: inherit; }
+        .btn-create { background: #c0392b; color: white; } 
+        .btn-create:hover { background: #e74c3c; }
+        .btn-join { background: #f39c12; color: white; } 
+        .btn-join:hover { background: #f1c40f; }
+        .btn-back { background: #34495e; color: white; }
         
         #createView, #joinView, #waitingView { display: none; }
         
@@ -24,76 +68,78 @@
         #gameView { display: none; }
 
         #topControls { position: absolute; top: 15px; right: 20px; display: flex; gap: 10px; }
-        #topControls button { padding: 10px 15px; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        #instructionsBtn { background: #3498db; }
-        #instructionsBtn:hover { background: #2980b9; }
+        #topControls button { padding: 10px 15px; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit;}
+        #instructionsBtn { background: #2980b9; }
         #leaveBtn { background: #e74c3c; }
-        #leaveBtn:hover { background: #c0392b; }
 
-        /* NY LAYOUT: WRAPPER OCH GRID (67% / 33%) */
-        #gameWrapper {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        #gameWrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        .game-top-row { display: flex; align-items: stretch; gap: 20px; width: 100%; flex-wrap: nowrap; }
+
+        /* === MIN YTA (VÄNSTER, 50%) === */
+        #myPlayerContainer { flex-basis: 50%; max-width: 50%; flex-shrink: 0; min-width: 300px; display: flex; }
+        #myPlayerContainer .player-area {
+            width: 100%; margin: 0; display: flex; flex-direction: column;
+            background: #5a5a5a; /* Standardfärg är grå (när det INTE är din tur) */
+            border: 5px solid #d4af37; 
+            border-radius: 10px;
+            padding: 10px;
+            color: #ecf0f1;
+            transition: background-color 0.4s ease; /* Mjuk färgövergång */
         }
 
-        .game-top-row {
-            display: flex;
-            align-items: stretch; 
-            gap: 20px;
-            width: 100%;
-            flex-wrap: nowrap; 
+        /* När det ÄR din tur blir den grön */
+        #myPlayerContainer .player-area.active-turn {
+            background: #155724; 
+            outline: 3px solid #f1c40f;
         }
 
-        #board { 
-            padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; 
-            flex-basis: 67%; flex-grow: 1; 
-            min-width: 300px; margin: 0;
-            display: flex; flex-direction: column;
+        /* === BORDET (HÖGER, 50%) MED TRÄBAKGRUND === */
+        #board {
+            padding: 15px; border-radius: 10px;
+            flex-basis: 50%; max-width: 50%; flex-grow: 1; min-width: 300px; margin: 0;
+            display: flex; flex-direction: column; justify-content: center;
+            background-color: #1a5e2a; 
+            background-image: url('wooden-table.jpg'); 
+            background-size: cover;
+            background-position: center;
+            border: 5px solid #d4af37; 
         }
 
-        #myPlayerContainer { 
-            flex-basis: 33%; flex-grow: 0; flex-shrink: 0; min-width: 250px; 
-            display: flex; 
-        }
-
-        #myPlayerContainer .player-area { width: 100%; margin: 0; display: flex; flex-direction: column; }
+        #board h2 { color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
         @media (max-width: 800px) {
             .game-top-row { flex-wrap: wrap; }
-            #myPlayerContainer, #board { flex-basis: 100%; width: 100%; }
+            #myPlayerContainer, #board { flex-basis: 100%; max-width: 100%; width: 100%; }
         }
 
-        .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px; }
+        .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: transparent; padding: 5px; border-radius: 8px; }
         
-        /* === NY KORTDESIGN === */
+        /* === KORTDESIGN === */
         .card { 
-            display: inline-block; width: 60px; height: 90px; background: white; color: black; 
-            border-radius: 5px; margin: 3px; font-weight: bold;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.5); vertical-align: middle; position: relative; user-select: none;
+            display: inline-block; width: 60px; height: 90px;
+            background: #fdfae7; 
+            color: black; border-radius: 5px; margin: 3px; font-weight: bold;
+            box-shadow: 3px 3px 6px rgba(0,0,0,0.7); vertical-align: middle; position: relative; user-select: none;
+            border: 1px solid #dcd7b9;
         }
         
-        .card-corner {
-            position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1;
-        }
+        .card-corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1; font-family: serif; }
         .top-left { top: 4px; left: 4px; }
         .bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
-        .card-val { font-size: 18px; }
-        .card-suit { font-size: 20px; }
+        .card-val { font-size: 20px; }
+        .card-suit { font-size: 22px; }
 
         .draggable { cursor: grab; }
         .draggable:active { cursor: grabbing; }
         .clickable { cursor: pointer; transition: 0.2s; }
         .clickable:hover { transform: translateY(-5px); }
-        .red { color: #e74c3c; }
-        .black { color: #2c3e50; }
+        .red { color: #b01b0e; } 
+        .black { color: #212121; } 
+
+        .facedown { background: #34495e !important; color: transparent !important; border: 2px solid #2c3e50 !important; position: relative; }
+        .facedown::after { content: "?"; color: #f1c40f; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 28px; }
         
-        .facedown { background: #7f8c8d !important; color: transparent !important; border: 2px solid #34495e !important; position: relative; }
-        .facedown::after { content: "?"; color: white; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 24px; }
-        
-        .penalty-target { border: 2px solid #e74c3c !important; box-shadow: 0 0 10px red !important; animation: pulse 1s infinite; }
+        .penalty-target { border: 2px solid #e74c3c !important; box-shadow: 0 0 15px red !important; animation: pulse 1s infinite; }
         .proof-selected { border: 2px solid #2ecc71; box-shadow: 0 0 15px #2ecc71; transform: translateY(-5px); }
 
         @keyframes pulse { 50% { opacity: 0.6; } }
@@ -102,59 +148,63 @@
         .drop-zone { 
             width: 60px; height: 90px; border: 2px dashed #bdc3c7; border-radius: 5px; margin: 0 10px; 
             display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;
-            transition: all 0.2s ease-in-out; position: relative; background: transparent;
+            transition: all 0.2s ease-in-out; position: relative; background: rgba(0,0,0,0.2); color: #ecf0f1;
         }
         
         .drop-zone.drag-over { 
-            background-color: rgba(46, 204, 113, 0.4); 
-            border-color: #2ecc71; 
-            box-shadow: 0 0 20px 5px rgba(46, 204, 113, 0.8); 
-            transform: scale(1.05); 
-            z-index: 20;
+            background-color: rgba(46, 204, 113, 0.4); border-color: #2ecc71; 
+            box-shadow: 0 0 20px 5px rgba(46, 204, 113, 0.8); transform: scale(1.05); z-index: 20;
         }
 
-        .played-card { background: white !important; border: 1px solid #bdc3c7 !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+        .played-card { background: #fdfae7 !important; border: 1px solid #bdc3c7 !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
         
         .completed-zone {
-            background: #7f8c8d !important; color: transparent !important; border: 2px solid #34495e !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); position: relative;
+            background: #212121 !important; color: transparent !important; border: 2px solid #101010 !important; position: relative;
         }
-        .completed-zone::after { content: "?"; color: white; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 24px; }
+        .completed-zone::after { content: "?"; color: #ecf0f1; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 28px; opacity: 0.5;}
 
         /* Jokrar */
         .joker-badge {
             position: absolute; top: -10px; right: -10px; font-size: 20px;
-            background: white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.5);
-            width: 26px; height: 26px; line-height: 26px; z-index: 10;
+            background: #f1c40f; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);
+            width: 28px; height: 28px; line-height: 28px; z-index: 10;
             transition: transform 0.2s, box-shadow 0.2s; pointer-events: none;
+            color: rgba(0,0,0,0.8); border: 2px solid #b7950b; font-family: serif; font-weight: bold;
         }
         .joker-active-badge { box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; transform: scale(1.3); cursor: grab; pointer-events: auto; }
         .joker-active-badge:active { cursor: grabbing; }
-        .joker-inactive-badge { background: #bdc3c7 !important; box-shadow: none !important; border: 2px solid #7f8c8d !important; filter: grayscale(100%); opacity: 0.8; pointer-events: none; }
+        .joker-inactive-badge { background: #5d5d5d !important; box-shadow: none !important; border: 2px solid #424242 !important; filter: grayscale(100%); opacity: 0.8; pointer-events: none; color: #ecf0f1;}
 
         .center-seven { font-size: 20px; margin: 0 10px; position: relative; }
         
         /* Spelare & Motspelare */
-        #playersContainer { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; }
-        .player-area { 
-            background: rgba(0,0,0,0.15); padding: 10px; border-radius: 10px; 
-            flex: 1; min-width: 220px; opacity: 0.5; transition: 0.3s; margin: 0;
+        #playersContainer { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; flex-direction: row-reverse; justify-content: center; }
+        
+        .opponent-area { 
+            background: #7d1c1c; 
+            border: 3px solid #d4af37; color: #ecf0f1;
+            padding: 10px; border-radius: 10px; 
+            flex: 1; 
+            min-width: 220px;
+            opacity: 0.7; transition: background-color 0.4s ease, opacity 0.3s; margin: 0; 
         }
-        .player-area.active-turn { opacity: 1; outline: 3px solid #f1c40f; background: rgba(0,0,0,0.3); }
-        .player-section { margin-bottom: 10px; padding: 5px; background: rgba(255,255,255,0.05); border-radius: 5px;}
+        
+        /* Motståndarnas yta när det är deras tur */
+        .opponent-area.active-turn { 
+            opacity: 1; outline: 3px solid #f1c40f; background: #922b2b; 
+        }
+        
+        .player-section { margin-bottom: 10px; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 5px;}
         
         .buffer-section { min-height: 95px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
-        
-        /* HÄR ÄR ÄNDRINGEN FÖR HANDEN: Större kort (ingen minskning) och mer luft (margin) */
         .hand-card { margin: 4px; } 
 
-        .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; }
-
-        h2, h3, h4 { margin: 5px; }
+        .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; font-family: inherit;}
 
         /* Modaler */
-        dialog { border: none; border-radius: 8px; padding: 20px; background: #ecf0f1; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
+        dialog { border: none; border-radius: 8px; padding: 20px; background: #ecf0f1; text-align: center; font-family: inherit; color: black; }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
-        select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; }
+        select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; font-family: inherit;}
         
         #instructionsDialog { width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; text-align: left; line-height: 1.6; color: #2c3e50; }
         .close-btn { display: block; margin: 20px auto 0; background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }
@@ -163,7 +213,7 @@
 <body>
 
     <div id="lobbyStep1" class="lobby-box">
-        <h1>House of Jokers</h1>
+        <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <h3>Välkommen!</h3>
         <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Ange ditt spelarnamn" required><br><br>
         <button class="lobby-btn btn-create" onclick="showCreateView()">Nytt spel</button>
@@ -172,7 +222,7 @@
     </div>
 
     <div id="createView" class="lobby-box">
-        <h1>Skapa Nytt Spel</h1>
+        <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <input type="text" id="inputCreateRoomName" class="lobby-input" placeholder="Spelplatsens namn" required><br>
         <select id="inputPlayerCount" class="lobby-input" style="width: 95%;">
             <option value="3">3 Spelare</option>
@@ -185,7 +235,7 @@
     </div>
 
     <div id="joinView" class="lobby-box">
-        <h1>Gå Med I Spel</h1>
+        <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Spelplatsens namn" required><br><br>
         <button class="lobby-btn btn-join" onclick="joinGame()">Gå med</button>
         <button class="lobby-btn btn-back" onclick="showStep1()">Tillbaka</button>
@@ -193,7 +243,7 @@
     </div>
 
     <div id="waitingView" class="lobby-box">
-        <h1>Väntar på fler spelare...</h1>
+        <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <h3 id="waitingText">Spelet startar när rummet är fullt.</h3>
     </div>
 
@@ -203,16 +253,16 @@
             <button id="leaveBtn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Lämna spel</button>
         </div>
 
-        <h1>🃏 House of Jokers</h1>
-        <h3 id="statusMessage" style="color: #f1c40f; height: 25px;">Laddar...</h3>
+        <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
+        
+        <div id="statusMessage">Laddar...</div>
 
         <div id="gameWrapper">
             <div class="game-top-row">
+                <div id="myPlayerContainer"></div>
                 <div id="board">
-                    <h2>Bordet</h2>
                     <div id="boardContainer"></div>
                 </div>
-                <div id="myPlayerContainer"></div>
             </div>
             <div id="playersContainer"></div>
         </div>
@@ -260,29 +310,29 @@
         <ul>
             <li><strong>Starten:</strong> Plocka ut alla fyra sjuor och lägg dem i en rad mitt på bordet.</li>
             <li><strong>Dela ut:</strong> Lägg jokrarna åt sidan. Dela ut alla kort i leken jämnt (eller så jämnt det går) till spelarna. Detta är din dolda hand.</li>
-            <li><strong>Det blinda valet:</strong> Varje spelare väljer ut tre valfria kort från sin hand och lägger dem framför sig med baksidan upp. Dessa tre platser kallas din buffert.</li>
+            <li><strong>Det blinda valet:</strong> Varje spelare väljer ut tre valfria kort från sin hand och lägger dem framför sig med baksidan upp. Dessa tre platser är dina spelbara kort.</li>
             <li><strong>Avslöjandet:</strong> På givet tecken vänder alla spelare upp sina tre kort samtidigt.</li>
             <li><strong>Start:</strong> Den spelare med flest kort på hand startar.</li>
         </ul>
 
         <h3>2. Kommunikation</h3>
         <ul>
-            <li>Ni får bara prata om de kort som ligger synliga på bordet (i stegarna eller i spelarnas buffertar).</li>
+            <li>Ni får bara prata om de kort som ligger synliga på bordet (i stegarna eller bland de spelbara korten).</li>
             <li>Det är strängt förbjudet att berätta eller hinta om vad man har kvar i sin dolda hand.</li>
         </ul>
 
         <h3>3. Målet med spelet</h3>
         <ul>
             <li><strong>Vinst:</strong> Alla 52 kort placeras i kompletta färgstegar (Ess till Kung).</li>
-            <li>Ni förlorar omedelbart om en spelare som redan har tre nedvända kort i sin buffert misslyckas med ett drag eller gissar fel (se Nåder-regeln).</li>
+            <li>Ni förlorar omedelbart om en spelare som redan har tre nedvända kort framför sig misslyckas med ett drag eller gissar fel (se Nåder-regeln).</li>
         </ul>
 
         <h3>4. Så spelar man</h3>
-        <p>Man spelar medsols. Om du har ett giltigt drag (ett kort i din buffert som passar i en stege och inte är blockerat) måste du agera. Du väljer då mellan två alternativ:</p>
+        <p>Man spelar medsols. Om du har ett giltigt drag (ett spelbart kort som passar i en stege och inte är blockerat) måste du agera. Du väljer då mellan två alternativ:</p>
         
         <h4>Alternativ A: Lägg ett kort</h4>
         <ul>
-            <li>Spela ut ett av dina buffertkort på rätt plats i en stege.</li>
+            <li>Spela ut ett av dina spelbara kort på rätt plats i en stege.</li>
             <li><strong>Lås stegen:</strong> Om du lägger ett Ess eller en Kung, vänd omedelbart den korthögen med baksidan upp. Den sidan är nu klar.</li>
             <li><strong>Fyll på:</strong> Ta ett nytt kort från din hand till den tomma platsen. Lade du ett uppvänt kort? Fyll på med ett uppvänt. Lade du ett nedvänt kort? Fyll på med ett nedvänt.</li>
         </ul>
@@ -290,7 +340,7 @@
         <h4>Alternativ B: Hantera en joker (Flytta eller Ta bort)</h4>
         <ul>
             <li>Om du har ett kort (uppvänt eller nedvänt) som skulle kunna läggas i en stege, kan du välja att istället flytta en joker.</li>
-            <li><strong>Beviset:</strong><br><em>Uppvänt kort:</em> Peka på det spelbara kortet i din buffert.<br><em>Nedvänt kort:</em> Säg vad kortet är, visa det för alla, och vänd tillbaka det till baksidan upp.</li>
+            <li><strong>Beviset:</strong><br><em>Uppvänt kort:</em> Peka på det spelbara kortet du har framför dig.<br><em>Nedvänt kort:</em> Säg vad kortet är, visa det för alla, och vänd tillbaka det till baksidan upp.</li>
             <li><strong>Flytta:</strong> Flytta en valfri joker till en ny ledig ändpunkt.</li>
             <li><strong>Ta bort:</strong> Om en färg är helt komplett (både Ess och Kung är lagda), får du använda din tur till att ta bort en joker helt. Lägg den då på sjuan i den färgen.</li>
             <li><strong>Ingen påfyllning:</strong> Eftersom du inte lade ut något kort drar du inget nytt från handen.</li>
@@ -299,7 +349,7 @@
         <h3>5. Om du INTE kan gå</h3>
         <p>Om inget av dina kort passar, eller om dina vägar är helt blockerade av jokrar:</p>
         <ul>
-            <li><strong>Straff:</strong> Du måste välja ett av dina uppvända kort i bufferten och vända det nedåt.</li>
+            <li><strong>Straff:</strong> Du måste välja ett av dina uppvända spelbara kort och vända det nedåt.</li>
             <li><strong>Nåder-regeln:</strong> Om du redan har tre nedvända kort framför dig är du "på nåder". Om det blir din tur igen och du fortfarande inte kan gå, eller om du försöker "bevisa" ett nedvänt kort men gissar fel – då är spelet omedelbart förlorat för hela gruppen.</li>
         </ul>
 
@@ -314,8 +364,8 @@
         <h3>7. Minne och Slutspel</h3>
         <ul>
             <li><strong>Minnesfel:</strong> Om du gissar fel på ett nedvänt kort (vid bevis eller utlägg), förblir kortet nedvänt. Som straff måste du vända ner ytterligare ett av dina uppvända kort.</li>
-            <li><strong>Tom hand:</strong> När din dolda hand är slut spelar du med dina kvarvarande buffertkort. Inga nya kort dras.</li>
-            <li><strong>Utspelad spelare:</strong> När en spelare har spelat ut samtliga sina kort (inklusive alla kort i bufferten) är denne helt klar och deltar inte längre i rundan. Resterande spelare fortsätter då att spela sina kort i medsols ordning.</li>
+            <li><strong>Tom hand:</strong> När din dolda hand är slut spelar du med dina kvarvarande spelbara kort. Inga nya kort dras.</li>
+            <li><strong>Utspelad spelare:</strong> När en spelare har spelat ut samtliga sina kort är denne helt klar och deltar inte längre i rundan. Resterande spelare fortsätter då att spela sina kort i medsols ordning.</li>
         </ul>
 
         <button class="close-btn" onclick="document.getElementById('instructionsDialog').close()">Stäng instruktioner</button>
@@ -341,7 +391,6 @@
 
         socket.on('yourId', (id) => { mySocketId = id; });
 
-        // === LOBBY NAVIGATION OCH FUNKTIONER ===
         function showCreateView() {
             const playerName = document.getElementById('inputPlayerName').value;
             if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
@@ -425,7 +474,6 @@
             document.getElementById('playerLeftDialog').showModal();
         });
 
-        // === SPEL-FUNKTIONER ===
         function getCardName(value) {
             if (value === 1) return 'E';
             if (value === 11) return 'Kn';
@@ -434,7 +482,7 @@
             return value;
         }
 
-        function setStatus(msg, color = "white") {
+        function setStatus(msg, color = "black") {
             const el = document.getElementById('statusMessage');
             el.innerText = msg;
             el.style.color = color;
@@ -451,10 +499,10 @@
 
             if (gamePhase === 'setup') {
                 let cardsNeeded = 3 - player.buffer.length;
-                setStatus(`FÖRBEREDELSE: ${nameDisplay} tur att välja ${cardsNeeded} buffertkort.`, "#3498db");
+                setStatus(`FÖRBEREDELSE: ${nameDisplay} tur att välja ${cardsNeeded} spelbara kort.`);
             } else if (player.mustReplace) {
-                if(isMyTurn) setStatus(`LUCKA I BUFFERTEN: Klicka på ett kort i handen för att ersätta det spelade kortet!`, "#e67e22");
-                else setStatus(`Väntar på att ${player.name} fyller på sin buffert...`, "#e67e22");
+                if(isMyTurn) setStatus(`LUCKA: Klicka på ett kort i handen för att ersätta det spelade kortet!`);
+                else setStatus(`Väntar på att ${player.name} fyller på sina spelbara kort...`);
             } else {
                 if (interactionState === 'blocked') {
                     if(isMyTurn) {
@@ -464,7 +512,7 @@
                         setStatus(`⚠️ ${player.name} är blockerad och måste agera.`, "#e74c3c");
                     }
                 } else {
-                    if(isMyTurn) setStatus(`Din tur. Dra kort till brädet, eller klicka på valfritt kort i bufferten för bevis/gissning.`);
+                    if(isMyTurn) setStatus(`Din tur. Dra kort till brädet, eller klicka på ett av dina spelbara kort för bevis/gissning.`);
                     else setStatus(`${player.name} funderar...`);
                 }
             }
@@ -481,7 +529,7 @@
         function giveUp() {
             if (confirm("Är du säker på att du vill ge upp? Detta avslutar spelet för alla.")) {
                 interactionState = 'waiting';
-                socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gav upp eftersom alla buffertkort var nedvända. Ni har förlorat!` });
+                socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gav upp eftersom alla spelbara kort var nedvända. Ni har förlorat!` });
             }
         }
 
@@ -535,7 +583,7 @@
                     socket.emit('moveJoker', { roomName: myRoomName, fromSuit, fromSide, toSuit, toSide }, (res) => {
                         interactionState = 'normal';
                         if(!res.success) setStatus("❌ " + res.msg, "#e74c3c");
-                        else setStatus("Jokern flyttad! Turen går vidare.", "#2ecc71");
+                        else setStatus("Jokern flyttad! Turen går vidare.");
                     });
                 } else {
                     setStatus("❌ Platsen är redan upptagen av en joker!", "#e74c3c");
@@ -627,7 +675,7 @@
 
                 selectedProofCard = { pIndex, bIndex, card };
                 interactionState = 'move_joker_pickup';
-                setStatus("Kort bevisat! Dra nu kortet till brädet, eller dra en grön joker för att flytta den.", "#2ecc71");
+                setStatus("Kort bevisat! Dra nu kortet till brädet, eller dra en grön joker för att flytta den.");
                 renderPlayers();
                 renderBoard();
             }
@@ -652,10 +700,10 @@
                     if (jokersActive) {
                         selectedProofCard = pendingGuessCard;
                         interactionState = 'move_joker_pickup';
-                        setStatus("Rätt gissat! Dra kortet till brädet, eller dra en grön joker för att flytta den.", "#2ecc71");
+                        setStatus("Rätt gissat! Dra kortet till brädet, eller dra en grön joker för att flytta den.");
                     } else {
                         interactionState = 'normal';
-                        setStatus("Rätt gissat! Dra nu ut kortet på spelplanen.", "#2ecc71");
+                        setStatus("Rätt gissat! Dra nu ut kortet på spelplanen.");
                     }
                 } else {
                     if (faceUpCountBefore === 0) {
@@ -681,7 +729,6 @@
             renderBoard(); 
         }
 
-        // --- NY KORTGENERATOR ---
         function generateCardHTML(value, suit) {
             let valStr = getCardName(value);
             let colorClass = (suit === '♥' || suit === '♦') ? 'red' : 'black';
@@ -744,7 +791,6 @@
                 const row = document.createElement('div');
                 row.className = 'suit-row';
 
-                // --- MIN ZONE ---
                 let isCompleteMin = state.min === 1;
                 const minZone = document.createElement('div');
                 minZone.className = 'drop-zone'; 
@@ -762,7 +808,6 @@
                 }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
 
-                // --- CENTER SJUA ---
                 const sevenCard = createCardDOM({ value: 7, suit: suit });
                 sevenCard.classList.add('center-seven');
                 
@@ -781,7 +826,6 @@
                     sevenCard.innerHTML += `<div class="joker-badge joker-inactive-badge">🃏</div>`;
                 }
 
-                // --- MAX ZONE ---
                 let isCompleteMax = state.max === 13;
                 const maxZone = document.createElement('div');
                 maxZone.className = 'drop-zone';
@@ -834,7 +878,12 @@
                 let p = localPlayers[pIndex];
                 let isMe = p.id === mySocketId;
                 const pDiv = document.createElement('div');
-                pDiv.className = `player-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
+                
+                if (isMe) {
+                    pDiv.className = `player-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
+                } else {
+                    pDiv.className = `opponent-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
+                }
                 
                 let giveUpHtml = '';
                 let allFacedown = p.buffer.length > 0 && p.buffer.every(c => c.isFacedown);
@@ -952,7 +1001,7 @@
         socket.on('gameEnded', (data) => {
             gamePhase = 'gameover';
             interactionState = 'gameover';
-            setStatus(`💀 SPELET ÄR ÖVER! ${data.msg}`, "red");
+            setStatus(`💀 SPELET ÄR ÖVER! ${data.msg}`, "#e74c3c");
             renderPlayers();
             renderBoard();
         });

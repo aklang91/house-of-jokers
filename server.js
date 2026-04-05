@@ -141,7 +141,7 @@ io.on('connection', (socket) => {
             io.to(roomName).emit('updatePlayers', room);
             callback({ success: true });
         } else {
-            callback({ success: false, msg: "Du kan inte fylla bufferten just nu!" });
+            callback({ success: false, msg: "Du kan inte välja fler kort just nu!" });
         }
     });
 
@@ -199,7 +199,7 @@ io.on('connection', (socket) => {
         if(!room) return;
 
         if (room.players[pIndex].id !== socket.id) return callback({success: false, msg: "Fusk!"});
-        if (room.gamePhase === 'setup') return callback({ success: false, msg: "Vänta tills alla har valt buffertkort!" });
+        if (room.gamePhase === 'setup') return callback({ success: false, msg: "Vänta tills alla har valt sina spelbara kort!" });
         if (card.suit !== toSuit) return callback({ success: false, msg: "Kortet draget till fel färg!" });
 
         let suitState = room.boardState[card.suit];
@@ -248,7 +248,6 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
-        // --- SPÄRR: Kan inte flytta TILL en stängd (face-down) sida ---
         if (toSide === 'min' && room.boardState[toSuit].min === 1) return callback({ success: false, msg: "Sidan är klar och stängd!" });
         if (toSide === 'max' && room.boardState[toSuit].max === 13) return callback({ success: false, msg: "Sidan är klar och stängd!" });
 
