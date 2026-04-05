@@ -3,18 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Joker-Sjua (v6.0)</title>
+    <title>House of Jokers</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #2c3e50; color: white; text-align: center; margin: 0; padding: 10px;}
         
-        /* Toppmeny */
+        /* === LOBBY UI === */
+        .lobby-box { margin-top: 50px; background: rgba(0,0,0,0.3); padding: 30px; border-radius: 10px; max-width: 400px; margin: 50px auto; }
+        .lobby-input { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; font-size: 16px; }
+        .lobby-btn { width: 45%; padding: 10px; margin: 5px 2%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-create { background: #2ecc71; color: white; }
+        .btn-create:hover { background: #27ae60; }
+        .btn-join { background: #3498db; color: white; }
+        .btn-join:hover { background: #2980b9; }
+        .btn-back { background: #7f8c8d; color: white; }
+        .btn-back:hover { background: #95a5a6; }
+        
+        #createView, #joinView, #waitingView { display: none; }
+        
+        /* === SPEL UI === */
+        #gameView { display: none; }
+
         #topControls { position: absolute; top: 15px; right: 20px; display: flex; gap: 10px; }
         #topControls button { padding: 10px 15px; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         #instructionsBtn { background: #3498db; }
         #instructionsBtn:hover { background: #2980b9; }
-        #restartBtn { background: #e74c3c; }
-        #restartBtn:hover { background: #c0392b; }
+        #leaveBtn { background: #e74c3c; }
+        #leaveBtn:hover { background: #c0392b; }
 
+        #gameWrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .game-top-row {
+            display: flex;
+            align-items: stretch; 
+            gap: 20px;
+            width: 100%;
+            flex-wrap: wrap; 
+        }
+
+        #board { 
+            padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; 
+            flex: 1; 
+            min-width: 300px; margin: 0;
+            display: flex; flex-direction: column;
+        }
+
+        #myPlayerContainer { width: 320px; flex-shrink: 0; display: flex; }
+        #myPlayerContainer .player-area { width: 100%; margin: 0; display: flex; flex-direction: column; }
+
+        .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px; }
+        
+        /* Kort och Zoner */
         .card { 
             display: inline-block; width: 50px; height: 75px; background: white; color: black; 
             border-radius: 5px; margin: 3px; line-height: 75px; font-size: 16px; font-weight: bold;
@@ -35,9 +79,6 @@
 
         @keyframes pulse { 50% { opacity: 0.6; } }
         
-        #board { margin: 10px auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; max-width: 800px; }
-        .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px; }
-        
         .drop-zone { 
             width: 60px; height: 85px; border: 2px dashed #bdc3c7; border-radius: 5px; margin: 0 15px; 
             display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;
@@ -46,67 +87,115 @@
         .drop-zone.drag-over { background-color: rgba(46, 204, 113, 0.3); border-color: #2ecc71; }
         .played-card { background: white !important; border: 1px solid #bdc3c7 !important; }
         
+        /* Jokrar */
         .joker-badge {
             position: absolute; top: -10px; right: -10px; font-size: 20px;
             background: white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.5);
             width: 26px; height: 26px; line-height: 26px; z-index: 10;
             transition: transform 0.2s, box-shadow 0.2s; pointer-events: none;
         }
-        
-        .joker-active-badge { 
-            box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; transform: scale(1.3);
-            cursor: grab; pointer-events: auto; 
-        }
+        .joker-active-badge { box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; transform: scale(1.3); cursor: grab; pointer-events: auto; }
         .joker-active-badge:active { cursor: grabbing; }
-        
-        .joker-inactive-badge {
-            background: #bdc3c7 !important; box-shadow: none !important; border: 2px solid #7f8c8d !important;
-            filter: grayscale(100%); opacity: 0.8; pointer-events: none;
-        }
+        .joker-inactive-badge { background: #bdc3c7 !important; box-shadow: none !important; border: 2px solid #7f8c8d !important; filter: grayscale(100%); opacity: 0.8; pointer-events: none; }
 
         .center-seven { font-size: 20px; box-shadow: 0 0 10px rgba(255,255,255,0.2); margin: 0 15px; position: relative; }
         
-        #playersContainer { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
-        .player-area { background: rgba(0,0,0,0.15); padding: 10px; border-radius: 10px; width: 30%; min-width: 280px; opacity: 0.5; transition: 0.3s;}
+        /* Spelare & Motspelare */
+        #playersContainer { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; }
+        .player-area { 
+            background: rgba(0,0,0,0.15); padding: 10px; border-radius: 10px; 
+            flex: 1; min-width: 220px; opacity: 0.5; transition: 0.3s; margin: 0;
+        }
         .player-area.active-turn { opacity: 1; outline: 3px solid #f1c40f; background: rgba(0,0,0,0.3); }
         .player-section { margin-bottom: 10px; padding: 5px; background: rgba(255,255,255,0.05); border-radius: 5px;}
+        
+        .buffer-section { min-height: 85px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
         .hand-card { transform: scale(0.85); margin: -2px; } 
 
         .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; }
-        .give-up-btn:hover { background: #c0392b; }
 
         h2, h3, h4 { margin: 5px; }
 
+        /* Modaler */
         dialog { border: none; border-radius: 8px; padding: 20px; background: #ecf0f1; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
         select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; }
         
-        /* Instruktionsmodal */
         #instructionsDialog { width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; text-align: left; line-height: 1.6; color: #2c3e50; }
-        #instructionsDialog h2, #instructionsDialog h3 { color: #2c3e50; margin-top: 20px; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px;}
-        #instructionsDialog ul { margin-bottom: 15px; padding-left: 20px; }
-        #instructionsDialog li { margin-bottom: 8px; }
         .close-btn { display: block; margin: 20px auto 0; background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }
-        .close-btn:hover { background: #2c3e50; }
-
     </style>
 </head>
 <body>
 
-    <div id="topControls">
-        <button id="instructionsBtn" onclick="document.getElementById('instructionsDialog').showModal()">Spelinstruktioner</button>
-        <button id="restartBtn" onclick="socket.emit('restart')">Starta om spelet</button>
+    <div id="lobbyStep1" class="lobby-box">
+        <h1>House of Jokers</h1>
+        <h3>Välkommen!</h3>
+        <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Ange ditt spelarnamn" required><br><br>
+        <button class="lobby-btn btn-create" onclick="showCreateView()">Nytt spel</button>
+        <button class="lobby-btn btn-join" onclick="showJoinView()">Gå med i spel</button>
+        <p id="lobbyError1" style="color: #e74c3c;"></p>
     </div>
 
-    <h1>🃏 Joker-Sjua</h1>
-    <h3 id="statusMessage" style="color: #f1c40f; height: 25px;">Laddar spel...</h3>
-
-    <div id="board">
-        <h2>Bordet</h2>
-        <div id="boardContainer"></div>
+    <div id="createView" class="lobby-box">
+        <h1>Skapa Nytt Spel</h1>
+        <input type="text" id="inputCreateRoomName" class="lobby-input" placeholder="Spelplatsens namn" required><br>
+        <select id="inputPlayerCount" class="lobby-input" style="width: 95%;">
+            <option value="3">3 Spelare</option>
+            <option value="4">4 Spelare</option>
+            <option value="5">5 Spelare</option>
+        </select><br><br>
+        <button class="lobby-btn btn-create" onclick="createGame()">Skapa spel</button>
+        <button class="lobby-btn btn-back" onclick="showStep1()">Tillbaka</button>
+        <p id="lobbyErrorCreate" style="color: #e74c3c;"></p>
     </div>
 
-    <div id="playersContainer"></div>
+    <div id="joinView" class="lobby-box">
+        <h1>Gå Med I Spel</h1>
+        <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Spelplatsens namn" required><br><br>
+        <button class="lobby-btn btn-join" onclick="joinGame()">Gå med</button>
+        <button class="lobby-btn btn-back" onclick="showStep1()">Tillbaka</button>
+        <p id="lobbyErrorJoin" style="color: #e74c3c;"></p>
+    </div>
+
+    <div id="waitingView" class="lobby-box">
+        <h1>Väntar på fler spelare...</h1>
+        <h3 id="waitingText">Spelet startar när rummet är fullt.</h3>
+    </div>
+
+    <div id="gameView">
+        <div id="topControls">
+            <button id="instructionsBtn" onclick="document.getElementById('instructionsDialog').showModal()">Spelinstruktioner</button>
+            <button id="leaveBtn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Lämna spel</button>
+        </div>
+
+        <h1>🃏 House of Jokers</h1>
+        <h3 id="statusMessage" style="color: #f1c40f; height: 25px;">Laddar...</h3>
+
+        <div id="gameWrapper">
+            <div class="game-top-row">
+                <div id="board">
+                    <h2>Bordet</h2>
+                    <div id="boardContainer"></div>
+                </div>
+                
+                <div id="myPlayerContainer"></div>
+            </div>
+
+            <div id="playersContainer"></div>
+        </div>
+    </div>
+
+    <dialog id="leaveConfirmDialog">
+        <h3>Är du säker?</h3>
+        <p>Vill du verkligen lämna spelet? Hela spelet förloras då.</p>
+        <button onclick="confirmLeave()" style="background: #e74c3c; color: white;">Ja</button>
+        <button onclick="document.getElementById('leaveConfirmDialog').close()">Nej</button>
+    </dialog>
+
+    <dialog id="playerLeftDialog">
+        <h3 id="playerLeftMsg" style="color: #e74c3c;">Någon lämnade spelet...</h3>
+        <button onclick="returnToLobby()">Gå tillbaka till startsidan</button>
+    </dialog>
 
     <dialog id="guessDialog">
         <h3>Vilket kort är detta?</h3>
@@ -130,7 +219,7 @@
     </dialog>
 
     <dialog id="instructionsDialog">
-        <h2 style="border:none; text-align:center;">Spelinstruktion: Joker-Sjua</h2>
+        <h2 style="border:none; text-align:center;">Spelinstruktion: House of Jokers</h2>
         <p><strong>Antal spelare:</strong> 3–5<br>
         <strong>Material:</strong> En standardkortlek (52 kort) och 3 jokrar.</p>
 
@@ -202,10 +291,14 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        
+        let mySocketId = "";
+        let myRoomName = "";
+        
         let localPlayers = [];
         let currentBoardState = {};
         let activeTurn = 0;
-        let gamePhase = 'setup'; 
+        let gamePhase = 'waiting'; 
         let cardsPlayedCount = 0;
         
         let interactionState = 'normal'; 
@@ -213,6 +306,99 @@
         let selectedProofCard = null; 
         let cardToRevert = null; 
 
+        socket.on('yourId', (id) => {
+            mySocketId = id;
+        });
+
+        // === LOBBY NAVIGATION OCH FUNKTIONER ===
+        function showCreateView() {
+            const playerName = document.getElementById('inputPlayerName').value;
+            if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
+            document.getElementById('lobbyError1').innerText = "";
+            
+            document.getElementById('lobbyStep1').style.display = 'none';
+            document.getElementById('createView').style.display = 'block';
+        }
+
+        function showJoinView() {
+            const playerName = document.getElementById('inputPlayerName').value;
+            if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
+            document.getElementById('lobbyError1').innerText = "";
+            
+            document.getElementById('lobbyStep1').style.display = 'none';
+            document.getElementById('joinView').style.display = 'block';
+        }
+
+        function showStep1() {
+            document.getElementById('createView').style.display = 'none';
+            document.getElementById('joinView').style.display = 'none';
+            document.getElementById('lobbyStep1').style.display = 'block';
+        }
+
+        function createGame() {
+            const playerName = document.getElementById('inputPlayerName').value;
+            const roomName = document.getElementById('inputCreateRoomName').value;
+            const maxPlayers = document.getElementById('inputPlayerCount').value;
+
+            if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Ange ett namn på spelrundan!";
+            
+            socket.emit('createGame', { playerName, roomName, maxPlayers }, (res) => {
+                if(res.success) {
+                    myRoomName = roomName;
+                    document.getElementById('createView').style.display = 'none';
+                    document.getElementById('waitingView').style.display = 'block';
+                } else {
+                    document.getElementById('lobbyErrorCreate').innerText = res.msg;
+                }
+            });
+        }
+
+        function joinGame() {
+            const playerName = document.getElementById('inputPlayerName').value;
+            const roomName = document.getElementById('inputJoinRoomName').value;
+
+            if(!roomName) return document.getElementById('lobbyErrorJoin').innerText = "Ange namnet på spelrundan!";
+            
+            socket.emit('joinGame', { playerName, roomName }, (res) => {
+                if(res.success) {
+                    myRoomName = roomName;
+                    document.getElementById('joinView').style.display = 'none';
+                    document.getElementById('waitingView').style.display = 'block';
+                } else {
+                    document.getElementById('lobbyErrorJoin').innerText = res.msg;
+                }
+            });
+        }
+
+        function confirmLeave() {
+            document.getElementById('leaveConfirmDialog').close();
+            socket.emit('leaveGame', { roomName: myRoomName });
+            returnToLobby();
+        }
+
+        function returnToLobby() {
+            document.getElementById('playerLeftDialog').close();
+            
+            myRoomName = "";
+            localPlayers = [];
+            currentBoardState = {};
+            activeTurn = 0;
+            
+            document.getElementById('gameView').style.display = 'none';
+            document.getElementById('waitingView').style.display = 'none';
+            showStep1();
+        }
+
+        socket.on('roomUpdate', (room) => {
+            document.getElementById('waitingText').innerText = `Spelare anslutna: ${room.players.length} / ${room.maxPlayers}. Väntar...`;
+        });
+
+        socket.on('playerLeft', (data) => {
+            document.getElementById('playerLeftMsg').innerText = data.msg;
+            document.getElementById('playerLeftDialog').showModal();
+        });
+
+        // === SPEL-FUNKTIONER ===
         function getCardName(value) {
             if (value === 1) return 'E';
             if (value === 11) return 'Kn';
@@ -233,20 +419,26 @@
             let player = localPlayers[activeTurn];
             if (!player) return;
 
+            let isMyTurn = (player.id === mySocketId);
+            let nameDisplay = isMyTurn ? "Din" : `${player.name}s`;
+
             if (gamePhase === 'setup') {
                 let cardsNeeded = 3 - player.buffer.length;
-                setStatus(`FÖRBEREDELSE: ${player.name}, klicka på din hand för att välja ${cardsNeeded} buffertkort.`, "#3498db");
+                setStatus(`FÖRBEREDELSE: ${nameDisplay} tur att välja ${cardsNeeded} buffertkort.`, "#3498db");
             } else if (player.mustReplace) {
-                setStatus(`LUCKA I BUFFERTEN: ${player.name}, klicka på ett kort i handen för att ersätta det spelade kortet!`, "#e67e22");
+                if(isMyTurn) setStatus(`LUCKA I BUFFERTEN: Klicka på ett kort i handen för att ersätta det spelade kortet!`, "#e67e22");
+                else setStatus(`Väntar på att ${player.name} fyller på sin buffert...`, "#e67e22");
             } else {
                 if (interactionState === 'blocked') {
-                    if (cardsPlayedCount < 3) {
-                        setStatus(`⚠️ BLOCKERAD: ${player.name}, du har inga giltiga drag. Klicka på ett uppvänt kort för att vända ner det, varpå turen går vidare.`, "#e74c3c");
+                    if(isMyTurn) {
+                        if (cardsPlayedCount < 3) setStatus(`⚠️ BLOCKERAD: Du har inga giltiga drag. Klicka på ett uppvänt kort för att vända ner det.`, "#e74c3c");
+                        else setStatus(`⚠️ BLOCKERAD: Du har inga giltiga drag. Klicka på ett UPPVÄNT kort (straff) eller GISSA på ett nedvänt!`, "#e74c3c");
                     } else {
-                        setStatus(`⚠️ BLOCKERAD: ${player.name}, du har inga giltiga drag. Klicka på ett UPPVÄNT kort (straff) eller GISSA på ett nedvänt!`, "#e74c3c");
+                        setStatus(`⚠️ ${player.name} är blockerad och måste agera.`, "#e74c3c");
                     }
                 } else {
-                    setStatus(`${player.name}s tur. Dra kort till brädet, eller klicka på valfritt kort i bufferten för bevis/gissning.`);
+                    if(isMyTurn) setStatus(`Din tur. Dra kort till brädet, eller klicka på valfritt kort i bufferten för bevis/gissning.`);
+                    else setStatus(`${player.name} funderar...`);
                 }
             }
         }
@@ -262,7 +454,7 @@
         function giveUp() {
             if (confirm("Är du säker på att du vill ge upp? Detta avslutar spelet för alla.")) {
                 interactionState = 'waiting';
-                socket.emit('gameOver', { msg: `${localPlayers[activeTurn].name} gav upp eftersom alla buffertkort var nedvända. Ni har förlorat!` });
+                socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gav upp eftersom alla buffertkort var nedvända. Ni har förlorat!` });
             }
         }
 
@@ -270,6 +462,7 @@
         function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
         
         function dragCard(ev, pIndex, bIndex) {
+            if (localPlayers[pIndex].id !== mySocketId) { ev.preventDefault(); return; }
             if (interactionState === 'waiting' || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) { ev.preventDefault(); return; }
             if (pIndex !== activeTurn) { ev.preventDefault(); return; }
             
@@ -289,10 +482,7 @@
             ev.dataTransfer.setData("type", "joker");
             ev.dataTransfer.setData("fromSuit", suit);
             ev.dataTransfer.setData("fromSide", side);
-            
-            if(ev.target) {
-                ev.dataTransfer.setDragImage(ev.target, 13, 13);
-            }
+            if(ev.target) ev.dataTransfer.setDragImage(ev.target, 13, 13);
         };
 
         function drop(ev, toSuit, toSide) {
@@ -315,13 +505,10 @@
 
                 if (!hasJokerAtTarget) {
                     interactionState = 'waiting';
-                    socket.emit('moveJoker', { fromSuit, fromSide, toSuit, toSide }, (res) => {
+                    socket.emit('moveJoker', { roomName: myRoomName, fromSuit, fromSide, toSuit, toSide }, (res) => {
                         interactionState = 'normal';
-                        if(!res.success) {
-                            setStatus("❌ " + res.msg, "#e74c3c");
-                        } else {
-                            setStatus("Jokern flyttad! Turen går vidare.", "#2ecc71");
-                        }
+                        if(!res.success) setStatus("❌ " + res.msg, "#e74c3c");
+                        else setStatus("Jokern flyttad! Turen går vidare.", "#2ecc71");
                     });
                 } else {
                     setStatus("❌ Platsen är redan upptagen av en joker!", "#e74c3c");
@@ -335,7 +522,7 @@
                 let card = localPlayers[pIndex].buffer[bIndex];
                 
                 interactionState = 'waiting'; 
-                socket.emit('playCard', { pIndex, bIndex, card, toSuit: toSuit, toSide: toSide }, (res) => {
+                socket.emit('playCard', { roomName: myRoomName, pIndex, bIndex, card, toSuit: toSuit, toSide: toSide }, (res) => {
                     interactionState = 'normal'; 
                     if (!res.success) {
                         if (selectedProofCard) interactionState = 'move_joker_pickup';
@@ -350,18 +537,18 @@
         }
 
         function handleBufferClick(pIndex, bIndex, event) {
+            if (localPlayers[pIndex].id !== mySocketId) return;
             if (interactionState === 'waiting' || interactionState === 'gameover' || pIndex !== activeTurn || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) return;
             
             let card = localPlayers[pIndex].buffer[bIndex];
 
-            // 1. SÄKERHETSSPÄRR FÖR STRAFFKORT
             if (event && event.currentTarget && event.currentTarget.classList.contains('penalty-target')) {
                 interactionState = 'waiting'; 
                 if (cardToRevert) {
-                    socket.emit('flipCardAndRevert', { pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
+                    socket.emit('flipCardAndRevert', { roomName: myRoomName, pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
                     cardToRevert = null;
                 } else {
-                    socket.emit('flipCard', { pIndex, bIndex });
+                    socket.emit('flipCard', { roomName: myRoomName, pIndex, bIndex });
                 }
                 return;
             }
@@ -371,7 +558,6 @@
                 return;
             }
 
-            // Gissa på ett nedvänt kort
             if (card.isFacedown && (interactionState === 'blocked' || interactionState === 'normal')) {
                 document.getElementById('guessSuit').value = '♥';
                 document.getElementById('guessValue').value = '1';
@@ -429,7 +615,7 @@
             const actualCard = pendingGuessCard.card;
             
             if (actualCard.suit === guessSuit && actualCard.value === guessValue) {
-                socket.emit('revealCard', { pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex });
+                socket.emit('revealCard', { roomName: myRoomName, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex });
                 pendingGuessCard.card.isFacedown = false; 
                 
                 let isPlayable = isCardPlayable(actualCard);
@@ -447,7 +633,7 @@
                 } else {
                     if (faceUpCountBefore === 0) {
                         interactionState = 'gameover';
-                        socket.emit('gameOver', { msg: `${localPlayers[activeTurn].name} gissade rätt, men kortet gick inte att spela och det finns inga andra kort att vända. Ni har förlorat!` });
+                        socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gissade rätt, men kortet gick inte att spela och det finns inga andra kort att vända. Ni har förlorat!` });
                     } else {
                         cardToRevert = pendingGuessCard; 
                         interactionState = 'penalty_with_revert';
@@ -457,7 +643,7 @@
             } else {
                 if (faceUpCountBefore === 0) {
                     interactionState = 'gameover';
-                    socket.emit('gameOver', { msg: `${localPlayers[activeTurn].name} gissade fel på sitt sista nedvända kort. Ni har förlorat spelet!` });
+                    socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gissade fel på sitt sista nedvända kort. Ni har förlorat spelet!` });
                 } else {
                     interactionState = 'penalty';
                     setStatus(`Fel gissat! Klicka på ett UPPVÄNT kort att vända ner (som straff).`, "#e74c3c");
@@ -513,7 +699,6 @@
                 const row = document.createElement('div');
                 row.className = 'suit-row';
 
-                // Min-zone
                 const minZone = document.createElement('div');
                 minZone.className = 'drop-zone'; 
                 if (state.min !== 7) minZone.classList.add('played-card');
@@ -522,7 +707,6 @@
                 minZone.ondragleave = dragLeave;
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
 
-                // Center-Sjua 
                 const sevenCard = createCardDOM({ value: 7, suit: suit });
                 sevenCard.classList.add('center-seven');
                 
@@ -543,7 +727,6 @@
                     sevenCard.innerHTML += `<div class="joker-badge joker-inactive-badge">🃏</div>`;
                 }
 
-                // Max-zone
                 const maxZone = document.createElement('div');
                 maxZone.className = 'drop-zone';
                 if (state.max !== 7) maxZone.classList.add('played-card');
@@ -562,7 +745,7 @@
         function renderPlayers() {
             let player = localPlayers[activeTurn];
 
-            if (player && interactionState === 'normal' && gamePhase === 'playing' && !player.mustReplace) {
+            if (player && player.id === mySocketId && interactionState === 'normal' && gamePhase === 'playing' && !player.mustReplace) {
                 let hasPlayableFaceUp = false;
                 player.buffer.forEach(c => {
                     if (!c.isFacedown && isCardPlayable(c)) hasPlayableFaceUp = true;
@@ -570,31 +753,37 @@
                 if (!hasPlayableFaceUp) interactionState = 'blocked';
             }
 
-            const container = document.getElementById('playersContainer');
-            container.innerHTML = '';
+            const opponentsContainer = document.getElementById('playersContainer');
+            const myContainer = document.getElementById('myPlayerContainer');
+            opponentsContainer.innerHTML = '';
+            myContainer.innerHTML = '';
 
             localPlayers.forEach((p, pIndex) => {
+                let isMe = p.id === mySocketId;
                 const pDiv = document.createElement('div');
                 pDiv.className = `player-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
                 
-                // Kolla om spelaren är "På nåder" och ska ha en Ge upp-knapp
                 let giveUpHtml = '';
                 let allFacedown = p.buffer.length > 0 && p.buffer.every(c => c.isFacedown);
                 
-                if (allFacedown && pIndex === activeTurn && gamePhase === 'playing' && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'penalty')) {
+                if (allFacedown && pIndex === activeTurn && isMe && gamePhase === 'playing' && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'penalty')) {
                     giveUpHtml = `<button class="give-up-btn" onclick="giveUp()">Ge upp</button>`;
                 }
                 
-                pDiv.innerHTML = `<h3>${p.name} ${giveUpHtml}</h3>`;
+                pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(Du)' : ''} ${giveUpHtml}</h3>`;
 
                 const bufferSection = document.createElement('div');
-                bufferSection.className = 'player-section';
-                bufferSection.innerHTML = '<h4>Buffert</h4>';
+                bufferSection.className = 'player-section buffer-section';
+                bufferSection.innerHTML = '';
                 
                 p.buffer.forEach((card, bIndex) => {
-                    const cardEl = createCardDOM(card, card.isFacedown);
+                    // OM det är setup OCH det är mina kort, visa dem för mig! Annars följ serverns direktiv.
+                    let showFacedown = card.isFacedown;
+                    if (gamePhase === 'setup' && isMe) showFacedown = false;
+
+                    const cardEl = createCardDOM(card, showFacedown);
                     
-                    if (pIndex === activeTurn && interactionState !== 'gameover') {
+                    if (isMe && pIndex === activeTurn && interactionState !== 'gameover') {
                         let isProof = selectedProofCard && selectedProofCard.bIndex === bIndex;
                         let isCardToRevert = cardToRevert && cardToRevert.bIndex === bIndex;
                         
@@ -617,7 +806,7 @@
                     }
                     bufferSection.appendChild(cardEl);
                 });
-                if (p.buffer.length === 0) bufferSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Tom)</span>';
+                
                 pDiv.appendChild(bufferSection);
 
                 const handSection = document.createElement('div');
@@ -625,11 +814,11 @@
                 handSection.innerHTML = '<h4>Hand</h4>';
                 
                 p.hand.forEach((card, cIndex) => {
-                    const cardEl = createCardDOM(card, false); 
+                    const cardEl = createCardDOM(card, !isMe); 
                     cardEl.classList.add('hand-card');
                     
                     let canClickHand = false;
-                    if (pIndex === activeTurn && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) {
+                    if (isMe && pIndex === activeTurn && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) {
                         if (gamePhase === 'setup' && p.buffer.length < 3) canClickHand = true;
                         if (gamePhase === 'playing' && p.mustReplace) canClickHand = true; 
                     }
@@ -641,7 +830,7 @@
                         cardEl.onclick = () => {
                             if (interactionState === 'waiting') return;
                             interactionState = 'waiting'; 
-                            socket.emit('fillBuffer', { pIndex, cardIndex: cIndex }, (res) => {
+                            socket.emit('fillBuffer', { roomName: myRoomName, pIndex, cardIndex: cIndex }, (res) => {
                                 interactionState = 'normal'; 
                                 if(!res.success) setStatus("❌ " + res.msg, "#e74c3c");
                             });
@@ -652,13 +841,24 @@
 
                 if (p.hand.length === 0) handSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Tom)</span>';
                 pDiv.appendChild(handSection);
-                container.appendChild(pDiv);
+                
+                if (isMe) {
+                    myContainer.appendChild(pDiv);
+                } else {
+                    opponentsContainer.appendChild(pDiv);
+                }
             });
 
             updateMainStatus();
         }
 
         socket.on('gameState', (data) => {
+            document.getElementById('lobbyStep1').style.display = 'none';
+            document.getElementById('createView').style.display = 'none';
+            document.getElementById('joinView').style.display = 'none';
+            document.getElementById('waitingView').style.display = 'none';
+            document.getElementById('gameView').style.display = 'block';
+
             currentBoardState = data.boardState;
             localPlayers = data.players;
             activeTurn = data.currentTurn;
