@@ -30,7 +30,7 @@ function shuffle(array) {
 const rooms = {};
 
 io.on('connection', (socket) => {
-    console.log('En spelare anslöt:', socket.id);
+    console.log('A player connected:', socket.id);
     
     socket.emit('yourId', socket.id);
 
@@ -38,7 +38,7 @@ io.on('connection', (socket) => {
         const { playerName, roomName, maxPlayers } = data;
         
         if (rooms[roomName]) {
-            return callback({ success: false, msg: "Ett rum med det namnet finns redan!" });
+            return callback({ success: false, msg: "A room with that name already exists!" });
         }
 
         rooms[roomName] = {
@@ -65,9 +65,9 @@ io.on('connection', (socket) => {
         const { playerName, roomName } = data;
         const room = rooms[roomName];
 
-        if (!room) return callback({ success: false, msg: "Rummet finns inte!" });
-        if (room.gamePhase !== 'waiting') return callback({ success: false, msg: "Spelet har redan startat!" });
-        if (room.players.length >= room.maxPlayers) return callback({ success: false, msg: "Rummet är fullt!" });
+        if (!room) return callback({ success: false, msg: "The room doesn't exist!" });
+        if (room.gamePhase !== 'waiting') return callback({ success: false, msg: "The game has already started!" });
+        if (room.players.length >= room.maxPlayers) return callback({ success: false, msg: "The room is full!" });
 
         room.players.push({ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false });
         socket.join(roomName);
@@ -115,7 +115,7 @@ io.on('connection', (socket) => {
         if(!room) return;
         let player = room.players[pIndex];
         
-        if (player.id !== socket.id) return callback({ success: false, msg: "Det är inte du!" });
+        if (player.id !== socket.id) return callback({ success: false, msg: "That is not you!" });
 
         if (player.mustReplace) {
             let card = player.hand.splice(cardIndex, 1)[0];
@@ -141,7 +141,7 @@ io.on('connection', (socket) => {
             io.to(roomName).emit('updatePlayers', room);
             callback({ success: true });
         } else {
-            callback({ success: false, msg: "Du kan inte välja fler kort just nu!" });
+            callback({ success: false, msg: "You cannot select more cards right now!" });
         }
     });
 
@@ -198,19 +198,19 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
-        if (room.players[pIndex].id !== socket.id) return callback({success: false, msg: "Fusk!"});
-        if (room.gamePhase === 'setup') return callback({ success: false, msg: "Vänta tills alla har valt sina spelbara kort!" });
-        if (card.suit !== toSuit) return callback({ success: false, msg: "Kortet draget till fel färg!" });
+        if (room.players[pIndex].id !== socket.id) return callback({success: false, msg: "Cheating!"});
+        if (room.gamePhase === 'setup') return callback({ success: false, msg: "Wait until everyone has chosen their playable cards!" });
+        if (card.suit !== toSuit) return callback({ success: false, msg: "Card dragged to the wrong suit!" });
 
         let suitState = room.boardState[card.suit];
         let isValidMove = false;
 
         if (toSide === 'max' && card.value === suitState.max + 1) {
-            if (suitState.jokerMax) return callback({ success: false, msg: "Blockerad! En joker ligger i vägen." });
+            if (suitState.jokerMax) return callback({ success: false, msg: "Blocked! A joker is in the way." });
             suitState.max = card.value;
             isValidMove = true;
         } else if (toSide === 'min' && card.value === suitState.min - 1) {
-            if (suitState.jokerMin) return callback({ success: false, msg: "Blockerad! En joker ligger i vägen." });
+            if (suitState.jokerMin) return callback({ success: false, msg: "Blocked! A joker is in the way." });
             suitState.min = card.value;
             isValidMove = true;
         }
@@ -239,7 +239,7 @@ io.on('connection', (socket) => {
                 callback({ success: true });
             }
         } else {
-            callback({ success: false, msg: "Ogiltigt drag! Kortet passar inte där." }); 
+            callback({ success: false, msg: "Invalid move! The card doesn't fit there." }); 
         }
     });
 
@@ -248,12 +248,12 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
-        if (toSide === 'min' && room.boardState[toSuit].min === 1) return callback({ success: false, msg: "Sidan är klar och stängd!" });
-        if (toSide === 'max' && room.boardState[toSuit].max === 13) return callback({ success: false, msg: "Sidan är klar och stängd!" });
+        if (toSide === 'min' && room.boardState[toSuit].min === 1) return callback({ success: false, msg: "That side is completed and closed!" });
+        if (toSide === 'max' && room.boardState[toSuit].max === 13) return callback({ success: false, msg: "That side is completed and closed!" });
 
         if (toSide === 'center') {
             if (room.boardState[toSuit].min !== 1 || room.boardState[toSuit].max !== 13) {
-                return callback({ success: false, msg: "Färgen är inte komplett än!" });
+                return callback({ success: false, msg: "The suit is not fully complete yet!" });
             }
         }
 
@@ -292,7 +292,7 @@ io.on('connection', (socket) => {
                 
                 if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
                     room.gamePhase = 'gameover';
-                    io.to(roomName).emit('playerLeft', { msg: `${player.name} valde att lämna. Ni har förlorat.` });
+                    io.to(roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
                 }
                 
                 if (room.gamePhase === 'waiting') {
@@ -313,5 +313,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`House of Jokers rullar på port ${PORT}`);
+    console.log(`House of Jokers running on port ${PORT}`);
 });

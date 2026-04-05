@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>House of Jokers</title>
     <style>
-        /* === GEMENSAM HISTORISK STIL === */
+        /* === COMMON HISTORICAL STYLE === */
         body {
             background-color: #cacaca; 
             background-image: none; 
@@ -20,7 +20,7 @@
             margin: 5px;
         }
 
-        /* Bild-loggan */
+        /* Logo */
         .game-logo {
             max-width: 300px;
             width: 100%;
@@ -29,54 +29,45 @@
             display: block;
         }
 
-        /* === PRATBUBBLA & JOKER-AVATAR === */
+        /* === SPEECH BUBBLE & JOKER AVATAR === */
         #statusContainer {
             display: flex;
             justify-content: center;
             align-items: center;
             margin-bottom: 20px;
-            gap: 15px; /* Avstånd mellan avatar och pratbubbla */
+            gap: 15px; 
         }
 
         .joker-avatar {
-            width: 65px;
-            height: 65px;
+            width: 55px; 
+            height: 55px; 
             border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid #d4af37;
+            object-fit: contain; 
+            padding: 5px; 
+            box-sizing: border-box;
             background-color: #ffffff;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             flex-shrink: 0;
+            border: none; 
         }
 
         #statusMessage {
             background-color: #ffffff;
-            border: 3px solid #d4af37; 
+            border: none; 
             color: #000000; 
             padding: 12px 20px;
-            border-radius: 15px; /* Mer rundade hörn för bubbel-känsla */
+            border-radius: 15px; 
             position: relative;
             display: inline-block;
             min-width: 40%;
             max-width: 60%;
             font-weight: bold;
             box-sizing: border-box;
-            text-align: left; /* Ser snyggare ut i pratbubblor */
+            text-align: left; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
         }
 
-        /* Pratbubblans yttre guld-triangel */
-        #statusMessage::before {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: -14px;
-            transform: translateY(-50%);
-            border-width: 10px 14px 10px 0;
-            border-style: solid;
-            border-color: transparent #d4af37 transparent transparent;
-        }
-
-        /* Pratbubblans inre vita triangel */
+        /* Speech bubble inner tail */
         #statusMessage::after {
             content: "";
             position: absolute;
@@ -88,7 +79,7 @@
             border-color: transparent #ffffff transparent transparent;
         }
 
-        /* === GLOBALA KONTROLLER (ALLTID SYNLIGA) === */
+        /* === GLOBAL CONTROLS === */
         #globalControls {
             position: absolute;
             top: 15px;
@@ -129,7 +120,7 @@
         
         #createView, #joinView, #waitingView { display: none; }
         
-        /* === SPEL UI === */
+        /* === GAME UI === */
         #gameView { display: none; }
 
         #topControls { position: absolute; top: 15px; right: 70px; display: flex; gap: 10px; z-index: 999; }
@@ -140,7 +131,7 @@
         #gameWrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
         .game-top-row { display: flex; align-items: stretch; gap: 20px; width: 100%; flex-wrap: nowrap; }
 
-        /* === MIN YTA (VÄNSTER, 50%) === */
+        /* === MY AREA (LEFT, 50%) === */
         #myPlayerContainer { flex-basis: 50%; max-width: 50%; flex-shrink: 0; min-width: 300px; display: flex; }
         
         #myPlayerContainer .player-area {
@@ -158,7 +149,7 @@
             outline: 3px solid #f1c40f;
         }
 
-        /* === BORDET (HÖGER, 50%) MED TRÄBAKGRUND === */
+        /* === BOARD (RIGHT, 50%) === */
         #board {
             padding: 15px; border-radius: 10px;
             flex-basis: 50%; max-width: 50%; flex-grow: 1; min-width: 300px; margin: 0;
@@ -176,12 +167,12 @@
             .game-top-row { flex-wrap: wrap; }
             #myPlayerContainer, #board { flex-basis: 100%; max-width: 100%; width: 100%; }
             #statusContainer { flex-direction: column; }
-            #statusMessage::before, #statusMessage::after { display: none; /* Dölj svansen på små skärmar om de hamnar under varandra */ }
+            #statusMessage::after { display: none; }
         }
 
         .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: transparent; padding: 5px; border-radius: 8px; }
         
-        /* === KORTDESIGN === */
+        /* === CARD DESIGN === */
         .card { 
             display: inline-block; width: 60px; height: 90px;
             background: #fdfae7; 
@@ -244,11 +235,11 @@
         }
         .completed-zone::after { display: none !important; }
 
-        /* Jokrar - Vit bakgrund, 100% färg */
+        /* Jokers */
         .joker-badge {
             position: absolute; top: -15px; right: -15px;
             background-color: #ffffff;
-            background-image: url('joker.png'); /* Använder joker.png precis som innan */
+            background-image: url('joker.png');
             background-size: cover;
             background-position: center;
             border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);
@@ -263,7 +254,6 @@
             pointer-events: none; 
         }
 
-        /* Gör själva kortet (men INTE jokern) inaktivt genom ett halvgenomskinligt lager */
         .inactive-zone::before {
             content: "";
             position: absolute;
@@ -276,7 +266,7 @@
 
         .center-seven { font-size: 20px; margin: 0 10px; position: relative; }
         
-        /* Spelare & Motspelare */
+        /* Players */
         #playersContainer { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; flex-direction: row-reverse; justify-content: center; }
         
         .opponent-area { 
@@ -299,7 +289,7 @@
 
         .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; font-family: inherit;}
 
-        /* Modaler */
+        /* Modals */
         dialog { border: none; border-radius: 8px; padding: 20px; background: #ecf0f1; text-align: center; font-family: inherit; color: black; }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
         select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; font-family: inherit;}
@@ -315,55 +305,55 @@
     </audio>
 
     <div id="globalControls">
-        <button id="muteBtn" onclick="toggleMute()" title="Stäng av/på musik">🔊</button>
+        <button id="muteBtn" onclick="toggleMute()" title="Mute/Unmute Music">🔊</button>
     </div>
 
     <div id="lobbyStep1" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <h3>Välkommen!</h3>
-        <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Ange ditt spelarnamn" required><br><br>
-        <button class="lobby-btn btn-create" onclick="showCreateView()">Nytt spel</button>
-        <button class="lobby-btn btn-join" onclick="showJoinView()">Gå med i spel</button>
+        <h3>Welcome!</h3>
+        <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Enter your player name" required><br><br>
+        <button class="lobby-btn btn-create" onclick="showCreateView()">New Game</button>
+        <button class="lobby-btn btn-join" onclick="showJoinView()">Join Game</button>
         <p id="lobbyError1" style="color: #e74c3c;"></p>
     </div>
 
     <div id="createView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <input type="text" id="inputCreateRoomName" class="lobby-input" placeholder="Spelplatsens namn" required><br>
+        <input type="text" id="inputCreateRoomName" class="lobby-input" placeholder="Room Name" required><br>
         <select id="inputPlayerCount" class="lobby-input" style="width: 95%;">
-            <option value="3">3 Spelare</option>
-            <option value="4">4 Spelare</option>
-            <option value="5">5 Spelare</option>
+            <option value="3">3 Players</option>
+            <option value="4">4 Players</option>
+            <option value="5">5 Players</option>
         </select><br><br>
-        <button class="lobby-btn btn-create" onclick="createGame()">Skapa spel</button>
-        <button class="lobby-btn btn-back" onclick="showStep1()">Tillbaka</button>
+        <button class="lobby-btn btn-create" onclick="createGame()">Create Game</button>
+        <button class="lobby-btn btn-back" onclick="showStep1()">Back</button>
         <p id="lobbyErrorCreate" style="color: #e74c3c;"></p>
     </div>
 
     <div id="joinView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Spelplatsens namn" required><br><br>
-        <button class="lobby-btn btn-join" onclick="joinGame()">Gå med</button>
-        <button class="lobby-btn btn-back" onclick="showStep1()">Tillbaka</button>
+        <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Room Name" required><br><br>
+        <button class="lobby-btn btn-join" onclick="joinGame()">Join</button>
+        <button class="lobby-btn btn-back" onclick="showStep1()">Back</button>
         <p id="lobbyErrorJoin" style="color: #e74c3c;"></p>
     </div>
 
     <div id="waitingView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <h3 id="waitingText">Spelet startar när rummet är fullt.</h3>
+        <h3 id="waitingText">The game starts when the room is full.</h3>
     </div>
 
     <div id="gameView">
         <div id="topControls">
-            <button id="instructionsBtn" onclick="document.getElementById('instructionsDialog').showModal()">Spelinstruktioner</button>
-            <button id="leaveBtn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Lämna spel</button>
+            <button id="instructionsBtn" onclick="document.getElementById('instructionsDialog').showModal()">Game Instructions</button>
+            <button id="leaveBtn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Leave Game</button>
         </div>
 
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         
         <div id="statusContainer">
-            <img src="joker.jpg" alt="Jokern" class="joker-avatar">
-            <div id="statusMessage">Laddar...</div>
+            <img src="joker.jpg" alt="Joker" class="joker-avatar">
+            <div id="statusMessage">Loading...</div>
         </div>
 
         <div id="gameWrapper">
@@ -378,106 +368,106 @@
     </div>
 
     <dialog id="leaveConfirmDialog">
-        <h3>Är du säker?</h3>
-        <p>Vill du verkligen lämna spelet? Hela spelet förloras då.</p>
-        <button onclick="confirmLeave()" style="background: #e74c3c; color: white;">Ja</button>
-        <button onclick="document.getElementById('leaveConfirmDialog').close()">Nej</button>
+        <h3>Are you sure?</h3>
+        <p>Do you really want to leave? The entire game will be lost.</p>
+        <button onclick="confirmLeave()" style="background: #e74c3c; color: white;">Yes</button>
+        <button onclick="document.getElementById('leaveConfirmDialog').close()">No</button>
     </dialog>
 
     <dialog id="playerLeftDialog">
-        <h3 id="playerLeftMsg" style="color: #e74c3c;">Någon lämnade spelet...</h3>
-        <button onclick="returnToLobby()">Gå tillbaka till startsidan</button>
+        <h3 id="playerLeftMsg" style="color: #e74c3c;">Someone left the game...</h3>
+        <button onclick="returnToLobby()">Return to Lobby</button>
     </dialog>
 
     <dialog id="guessDialog">
-        <h3>Vilket kort är detta?</h3>
+        <h3>Which card is this?</h3>
         <div style="margin-bottom: 15px;">
             <select id="guessSuit">
-                <option value="♠">Spader (♠)</option>
-                <option value="♥">Hjärter (♥)</option>
-                <option value="♦">Ruter (♦)</option>
-                <option value="♣">Klöver (♣)</option>
+                <option value="♠">Spades (♠)</option>
+                <option value="♥">Hearts (♥)</option>
+                <option value="♦">Diamonds (♦)</option>
+                <option value="♣">Clubs (♣)</option>
             </select>
             <select id="guessValue">
-                <option value="1">E</option><option value="2">2</option><option value="3">3</option>
+                <option value="1">A</option><option value="2">2</option><option value="3">3</option>
                 <option value="4">4</option><option value="5">5</option><option value="6">6</option>
                 <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-                <option value="10">10</option><option value="11">Kn</option><option value="12">D</option>
+                <option value="10">10</option><option value="11">J</option><option value="12">Q</option>
                 <option value="13">K</option>
             </select>
         </div>
-        <button onclick="submitGuess()">Gissa</button>
-        <button onclick="document.getElementById('guessDialog').close()">Avbryt</button>
+        <button onclick="submitGuess()">Guess</button>
+        <button onclick="document.getElementById('guessDialog').close()">Cancel</button>
     </dialog>
 
     <dialog id="instructionsDialog">
-        <h2 style="border:none; text-align:center;">Spelinstruktion: House of Jokers</h2>
-        <p><strong>Antal spelare:</strong> 3–5<br>
-        <strong>Material:</strong> En standardkortlek (52 kort) och 3 jokrar.</p>
+        <h2 style="border:none; text-align:center;">Game Instructions: House of Jokers</h2>
+        <p><strong>Players:</strong> 3–5<br>
+        <strong>Equipment:</strong> A standard deck (52 cards) and 3 jokers.</p>
 
-        <h3>1. Förberedelser</h3>
+        <h3>1. Setup</h3>
         <ul>
-            <li><strong>Starten:</strong> Plocka ut alla fyra sjuor och lägg dem i en rad mitt på bordet.</li>
-            <li><strong>Dela ut:</strong> Lägg jokrarna åt sidan. Dela ut alla kort i leken jämnt (eller så jämnt det går) till spelarna. Detta är din dolda hand.</li>
-            <li><strong>Det blinda valet:</strong> Varje spelare väljer ut tre valfria kort från sin hand och lägger dem framför sig med baksidan upp. Dessa tre platser är dina spelbara kort.</li>
-            <li><strong>Avslöjandet:</strong> På givet tecken vänder alla spelare upp sina tre kort samtidigt.</li>
-            <li><strong>Start:</strong> Den spelare med flest kort på hand startar.</li>
+            <li><strong>The Start:</strong> Take out all four sevens and place them in a row in the middle of the board.</li>
+            <li><strong>Deal:</strong> Set the jokers aside. Deal all remaining cards evenly to the players. This is your hidden hand.</li>
+            <li><strong>The Blind Choice:</strong> Each player selects three cards from their hand and places them face-down. These three slots are your playable cards.</li>
+            <li><strong>The Reveal:</strong> On a given signal, everyone reveals their three cards simultaneously.</li>
+            <li><strong>Start:</strong> The player with the most cards in hand starts.</li>
         </ul>
 
-        <h3>2. Kommunikation</h3>
+        <h3>2. Communication</h3>
         <ul>
-            <li>Ni får bara prata om de kort som ligger synliga på bordet (i stegarna eller bland de spelbara korten).</li>
-            <li>Det är strängt förbjudet att berätta eller hinta om vad man har kvar i sin dolda hand.</li>
+            <li>You may only talk about the cards visible on the board or among the playable cards.</li>
+            <li>It is strictly forbidden to reveal or hint at what you have left in your hidden hand.</li>
         </ul>
 
-        <h3>3. Målet med spelet</h3>
+        <h3>3. Objective</h3>
         <ul>
-            <li><strong>Vinst:</strong> Alla 52 kort placeras i kompletta färgstegar (Ess till Kung).</li>
-            <li>Ni förlorar omedelbart om en spelare som redan har tre nedvända kort framför sig misslyckas med ett drag eller gissar fel (se Nåder-regeln).</li>
+            <li><strong>Win:</strong> All 52 cards are placed in complete straight flushes (Ace to King).</li>
+            <li>You lose immediately if a player who already has three face-down cards fails a move or guesses wrong (see the Mercy Rule).</li>
         </ul>
 
-        <h3>4. Så spelar man</h3>
-        <p>Man spelar medsols. Om du har ett giltigt drag (ett spelbart kort som passar i en stege och inte är blockerat) måste du agera. Du väljer då mellan två alternativ:</p>
+        <h3>4. How to Play</h3>
+        <p>Play proceeds clockwise. If you have a valid move (a playable card that fits on a straight and is not blocked), you must act. You then choose between two options:</p>
         
-        <h4>Alternativ A: Lägg ett kort</h4>
+        <h4>Option A: Play a card</h4>
         <ul>
-            <li>Spela ut ett av dina spelbara kort på rätt plats i en stege.</li>
-            <li><strong>Lås stegen:</strong> Om du lägger ett Ess eller en Kung, vänd omedelbart den korthögen med baksidan upp. Den sidan är nu klar.</li>
-            <li><strong>Fyll på:</strong> Ta ett nytt kort från din hand till den tomma platsen. Lade du ett uppvänt kort? Fyll på med ett uppvänt. Lade du ett nedvänt kort? Fyll på med ett nedvänt.</li>
+            <li>Play one of your playable cards to the correct spot on a straight.</li>
+            <li><strong>Lock the straight:</strong> If you play an Ace or a King, immediately turn that pile face down. That side is now closed.</li>
+            <li><strong>Refill:</strong> Take a new card from your hand to fill the empty spot. Did you play a face-up card? Refill with a face-up card. Did you play a face-down card? Refill with a face-down card.</li>
         </ul>
 
-        <h4>Alternativ B: Hantera en joker (Flytta eller Ta bort)</h4>
+        <h4>Option B: Handle a Joker (Move or Remove)</h4>
         <ul>
-            <li>Om du har ett kort (uppvänt eller nedvänt) som skulle kunna läggas i en stege, kan du välja att istället flytta en joker.</li>
-            <li><strong>Beviset:</strong><br><em>Uppvänt kort:</em> Peka på det spelbara kortet du har framför dig.<br><em>Nedvänt kort:</em> Säg vad kortet är, visa det för alla, och vänd tillbaka det till baksidan upp.</li>
-            <li><strong>Flytta:</strong> Flytta en valfri joker till en ny ledig ändpunkt.</li>
-            <li><strong>Ta bort:</strong> Om en färg är helt komplett (både Ess och Kung är lagda), får du använda din tur till att ta bort en joker helt. Lägg den då på sjuan i den färgen.</li>
-            <li><strong>Ingen påfyllning:</strong> Eftersom du inte lade ut något kort drar du inget nytt från handen.</li>
+            <li>If you have a card (face-up or face-down) that could be played on a straight, you can choose to move a joker instead.</li>
+            <li><strong>The Proof:</strong><br><em>Face-up card:</em> Point to the playable card in front of you.<br><em>Face-down card:</em> State what the card is, show it to everyone, and return it face-down.</li>
+            <li><strong>Move:</strong> Move any joker to a new open endpoint.</li>
+            <li><strong>Remove:</strong> If a suit is completely finished (both Ace and King are played), you may use your turn to remove a joker entirely. Place it on the seven of that suit.</li>
+            <li><strong>No refill:</strong> Since you didn't play a card to the board, do not draw a new one.</li>
         </ul>
 
-        <h3>5. Om du INTE kan gå</h3>
-        <p>Om inget av dina kort passar, eller om dina vägar är helt blockerade av jokrar:</p>
+        <h3>5. If you CANNOT act</h3>
+        <p>If none of your cards fit, or if your paths are entirely blocked by jokers:</p>
         <ul>
-            <li><strong>Straff:</strong> Du måste välja ett av dina uppvända spelbara kort och vända det nedåt.</li>
-            <li><strong>Nåder-regeln:</strong> Om du redan har tre nedvända kort framför dig är du "på nåder". Om det blir din tur igen och du fortfarande inte kan gå, eller om du försöker "bevisa" ett nedvänt kort men gissar fel – då är spelet omedelbart förlorat för hela gruppen.</li>
+            <li><strong>Penalty:</strong> You must choose one of your face-up playable cards and turn it face-down.</li>
+            <li><strong>The Mercy Rule:</strong> If you already have three face-down cards in front of you, you are 'at mercy'. If it becomes your turn again and you still can't move, or if you try to 'prove' a face-down card but guess wrong – the game is immediately lost for the whole group.</li>
         </ul>
 
-        <h3>6. Jokrarnas lagar</h3>
+        <h3>6. Laws of the Jokers</h3>
         <ul>
-            <li><strong>Spärr:</strong> Inget kort kan läggas där en joker ligger.</li>
-            <li><strong>Start:</strong> De tre första korten som läggs efter sjuorna får varsin joker på sig direkt.</li>
-            <li><strong>Placering:</strong> Max en joker per ändpunkt.</li>
-            <li><strong>Förbjudna zoner:</strong> En joker får aldrig ligga på en sjua (förrän den tas bort permanent) eller på en klar sida.</li>
+            <li><strong>Block:</strong> No card can be played where a joker lies.</li>
+            <li><strong>Start:</strong> The first three cards played after the sevens get a joker placed on them immediately.</li>
+            <li><strong>Placement:</strong> Max one joker per endpoint.</li>
+            <li><strong>Forbidden zones:</strong> A joker may never be placed on a seven (until removed permanently) or on a closed side.</li>
         </ul>
 
-        <h3>7. Minne och Slutspel</h3>
+        <h3>7. Memory and Endgame</h3>
         <ul>
-            <li><strong>Minnesfel:</strong> Om du gissar fel på ett nedvänt kort (vid bevis eller utlägg), förblir kortet nedvänt. Som straff måste du vända ner ytterligare ett av dina uppvända kort.</li>
-            <li><strong>Tom hand:</strong> När din dolda hand är slut spelar du med dina kvarvarande spelbara kort. Inga nya kort dras.</li>
-            <li><strong>Utspelad spelare:</strong> När en spelare har spelat ut samtliga sina kort är denne helt klar och deltar inte längre i rundan. Resterande spelare fortsätter då att spela sina kort i medsols ordning.</li>
+            <li><strong>Memory Error:</strong> If you guess wrong on a face-down card (during proof or play), the card remains face-down. As a penalty, you must turn down an additional face-up card.</li>
+            <li><strong>Empty hand:</strong> When your hidden hand is empty, you play with your remaining playable cards. No new cards are drawn.</li>
+            <li><strong>Finished player:</strong> When a player has played all their cards, they are completely done and no longer participate in the round. The remaining players continue to play in clockwise order.</li>
         </ul>
 
-        <button class="close-btn" onclick="document.getElementById('instructionsDialog').close()">Stäng instruktioner</button>
+        <button class="close-btn" onclick="document.getElementById('instructionsDialog').close()">Close Instructions</button>
     </dialog>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -498,25 +488,22 @@
         let selectedProofCard = null; 
         let cardToRevert = null; 
 
-        // Musikvariabler
+        // Music Variables
         let isMuted = false;
         const bgMusic = document.getElementById('bgMusic');
 
         socket.on('yourId', (id) => { mySocketId = id; });
 
-        // Funktion för att slå av/på musik
         function toggleMute() {
             isMuted = !isMuted;
             bgMusic.muted = isMuted;
             document.getElementById('muteBtn').innerText = isMuted ? "🔇" : "🔊";
             
-            // Försök starta om den var pausad (browser policy)
             if (!isMuted && bgMusic.paused) {
                 bgMusic.play().catch(e => console.log("Audio blocked: ", e));
             }
         }
 
-        // Startar musiken vid första klick (krävs av webbläsare)
         function startMusicOnInteraction() {
             if (bgMusic.paused && !isMuted) {
                 bgMusic.play().catch(e => console.log("Audio blocked: ", e));
@@ -526,7 +513,7 @@
         function showCreateView() {
             startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
-            if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
+            if (!playerName) return document.getElementById('lobbyError1').innerText = "You must enter a name first!";
             document.getElementById('lobbyError1').innerText = "";
             document.getElementById('lobbyStep1').style.display = 'none';
             document.getElementById('createView').style.display = 'block';
@@ -535,7 +522,7 @@
         function showJoinView() {
             startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
-            if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
+            if (!playerName) return document.getElementById('lobbyError1').innerText = "You must enter a name first!";
             document.getElementById('lobbyError1').innerText = "";
             document.getElementById('lobbyStep1').style.display = 'none';
             document.getElementById('joinView').style.display = 'block';
@@ -553,7 +540,7 @@
             const roomName = document.getElementById('inputCreateRoomName').value;
             const maxPlayers = document.getElementById('inputPlayerCount').value;
 
-            if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Ange ett namn på spelrundan!";
+            if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Enter a room name!";
             
             socket.emit('createGame', { playerName, roomName, maxPlayers }, (res) => {
                 if(res.success) {
@@ -571,7 +558,7 @@
             const playerName = document.getElementById('inputPlayerName').value;
             const roomName = document.getElementById('inputJoinRoomName').value;
 
-            if(!roomName) return document.getElementById('lobbyErrorJoin').innerText = "Ange namnet på spelrundan!";
+            if(!roomName) return document.getElementById('lobbyErrorJoin').innerText = "Enter a room name!";
             
             socket.emit('joinGame', { playerName, roomName }, (res) => {
                 if(res.success) {
@@ -596,13 +583,14 @@
             localPlayers = [];
             currentBoardState = {};
             activeTurn = 0;
+            document.title = "House of Jokers"; 
             document.getElementById('gameView').style.display = 'none';
             document.getElementById('waitingView').style.display = 'none';
             showStep1();
         }
 
         socket.on('roomUpdate', (room) => {
-            document.getElementById('waitingText').innerText = `Spelare anslutna: ${room.players.length} / ${room.maxPlayers}. Väntar...`;
+            document.getElementById('waitingText').innerText = `Players connected: ${room.players.length} / ${room.maxPlayers}. Waiting...`;
         });
 
         socket.on('playerLeft', (data) => {
@@ -611,9 +599,9 @@
         });
 
         function getCardName(value) {
-            if (value === 1) return 'E';
-            if (value === 11) return 'Kn';
-            if (value === 12) return 'D';
+            if (value === 1) return 'A';
+            if (value === 11) return 'J';
+            if (value === 12) return 'Q';
             if (value === 13) return 'K';
             return value;
         }
@@ -631,25 +619,33 @@
             if (!player) return;
 
             let isMyTurn = (player.id === mySocketId);
-            let nameDisplay = isMyTurn ? "Din" : `${player.name}s`;
+            let nameDisplay = isMyTurn ? "Your" : `${player.name}'s`;
+
+            if (isMyTurn && gamePhase === 'playing') {
+                document.title = "Your turn - House of Jokers";
+            } else if (isMyTurn && gamePhase === 'setup') {
+                document.title = "Your turn - House of Jokers";
+            } else {
+                document.title = "House of Jokers";
+            }
 
             if (gamePhase === 'setup') {
                 let cardsNeeded = 3 - player.buffer.length;
-                setStatus(`FÖRBEREDELSE: ${nameDisplay} tur att välja ${cardsNeeded} spelbara kort.`);
+                setStatus(`SETUP: ${nameDisplay} turn to pick ${cardsNeeded} playable cards.`);
             } else if (player.mustReplace) {
-                if(isMyTurn) setStatus(`LUCKA: Klicka på ett kort i handen för att ersätta det spelade kortet!`);
-                else setStatus(`Väntar på att ${player.name} fyller på sina spelbara kort...`);
+                if(isMyTurn) setStatus(`GAP: Click a card in your hand to replace the played card!`);
+                else setStatus(`Waiting for ${player.name} to refill their playable cards...`);
             } else {
                 if (interactionState === 'blocked') {
                     if(isMyTurn) {
-                        if (cardsPlayedCount < 3) setStatus(`⚠️ BLOCKERAD: Du har inga giltiga drag. Klicka på ett uppvänt kort för att vända ner det.`, "#e74c3c");
-                        else setStatus(`⚠️ BLOCKERAD: Du har inga giltiga drag. Klicka på ett UPPVÄNT kort (straff) eller GISSA på ett nedvänt!`, "#e74c3c");
+                        if (cardsPlayedCount < 3) setStatus(`⚠️ BLOCKED: You have no valid moves. Click a face-up card to turn it face-down.`, "#e74c3c");
+                        else setStatus(`⚠️ BLOCKED: You have no valid moves. Click a FACE-UP card (penalty) or GUESS a face-down card!`, "#e74c3c");
                     } else {
-                        setStatus(`⚠️ ${player.name} är blockerad och måste agera.`, "#e74c3c");
+                        setStatus(`⚠️ ${player.name} is blocked and must act.`, "#e74c3c");
                     }
                 } else {
-                    if(isMyTurn) setStatus(`Din tur. Dra kort till brädet, eller klicka på ett av dina spelbara kort för bevis/gissning.`);
-                    else setStatus(`${player.name} funderar...`);
+                    if(isMyTurn) setStatus(`Your turn. Drag a card to the board, or click one of your playable cards for proof/guess.`);
+                    else setStatus(`${player.name} is thinking...`);
                 }
             }
         }
@@ -663,9 +659,9 @@
         }
 
         function giveUp() {
-            if (confirm("Är du säker på att du vill ge upp? Detta avslutar spelet för alla.")) {
+            if (confirm("Are you sure you want to give up? This ends the game for everyone.")) {
                 interactionState = 'waiting';
-                socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gav upp eftersom alla spelbara kort var nedvända. Ni har förlorat!` });
+                socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gave up because all playable cards were face-down. You have lost!` });
             }
         }
 
@@ -719,10 +715,10 @@
                     socket.emit('moveJoker', { roomName: myRoomName, fromSuit, fromSide, toSuit, toSide }, (res) => {
                         interactionState = 'normal';
                         if(!res.success) setStatus("❌ " + res.msg, "#e74c3c");
-                        else setStatus("Jokern flyttad! Turen går vidare.");
+                        else setStatus("Joker moved! Turn passes.");
                     });
                 } else {
-                    setStatus("❌ Platsen är redan upptagen av en joker!", "#e74c3c");
+                    setStatus("❌ Spot is already taken by a joker!", "#e74c3c");
                 }
 
             } else if (type === "card") {
@@ -765,7 +761,7 @@
             }
 
             if (interactionState === 'penalty' || interactionState === 'penalty_with_revert') {
-                setStatus("❌ Du måste välja ett UPPVÄNT kort (med röd ram) att vända ner!", "#e74c3c");
+                setStatus("❌ You must choose a FACE-UP card (red border) to turn down!", "#e74c3c");
                 return;
             }
 
@@ -778,7 +774,7 @@
             }
 
             if (interactionState === 'blocked') {
-                setStatus("❌ Du är blockerad! Välj ett uppvänt kort (röd ram) att vända ner, eller gissa på ett nedvänt.", "#e74c3c");
+                setStatus("❌ You are blocked! Choose a face-up card (red border) to turn down, or guess a face-down one.", "#e74c3c");
                 return;
             }
 
@@ -791,27 +787,27 @@
                     renderBoard(); 
                     return;
                 } else {
-                    setStatus("❌ Du har redan valt ett bevis! Klicka på det igen för att avbryta.", "#e74c3c");
+                    setStatus("❌ You have already selected a proof! Click it again to cancel.", "#e74c3c");
                     return;
                 }
             }
 
             if (interactionState === 'normal') {
                 if (cardsPlayedCount < 3) {
-                    setStatus("❌ Jokrar är ej aktiverade! Du måste agera med kortet som vanligt.", "#e74c3c");
+                    setStatus("❌ Jokers are not activated yet! You must play the card normally.", "#e74c3c");
                     setTimeout(updateMainStatus, 3000);
                     return;
                 }
 
                 if (!isCardPlayable(card)) {
-                    setStatus("❌ Du kan inte använda detta kort som bevis, eftersom det inte passar någonstans på brädet!", "#e74c3c");
+                    setStatus("❌ You cannot use this card as proof, because it doesn't fit anywhere on the board!", "#e74c3c");
                     setTimeout(updateMainStatus, 3500);
                     return;
                 }
 
                 selectedProofCard = { pIndex, bIndex, card };
                 interactionState = 'move_joker_pickup';
-                setStatus("Kort bevisat! Dra nu kortet till brädet, eller dra en grön joker för att flytta den.");
+                setStatus("Card proven! Now drag the card to the board, or drag a joker to move it.");
                 renderPlayers();
                 renderBoard();
             }
@@ -836,28 +832,28 @@
                     if (jokersActive) {
                         selectedProofCard = pendingGuessCard;
                         interactionState = 'move_joker_pickup';
-                        setStatus("Rätt gissat! Dra kortet till brädet, eller dra en grön joker för att flytta den.");
+                        setStatus("Correct guess! Drag the card to the board, or drag a joker to move it.");
                     } else {
                         interactionState = 'normal';
-                        setStatus("Rätt gissat! Dra nu ut kortet på spelplanen.");
+                        setStatus("Correct guess! Now drag the card to the board.");
                     }
                 } else {
                     if (faceUpCountBefore === 0) {
                         interactionState = 'gameover';
-                        socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gissade rätt, men kortet gick inte att spela och det finns inga andra kort att vända. Ni har förlorat!` });
+                        socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed correctly, but the card couldn't be played and there are no other cards to turn down. You lost!` });
                     } else {
                         cardToRevert = pendingGuessCard; 
                         interactionState = 'penalty_with_revert';
-                        setStatus(`Rätt gissat, men kortet går inte att spela! Välj ett ANNAT kort att vända ner (som straff).`, "#e74c3c");
+                        setStatus(`Correct guess, but the card can't be played! Choose ANOTHER card to turn down (penalty).`, "#e74c3c");
                     }
                 }
             } else {
                 if (faceUpCountBefore === 0) {
                     interactionState = 'gameover';
-                    socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} gissade fel på sitt sista nedvända kort. Ni har förlorat spelet!` });
+                    socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed wrong on their last face-down card. You lost the game!` });
                 } else {
                     interactionState = 'penalty';
-                    setStatus(`Fel gissat! Klicka på ett UPPVÄNT kort att vända ner (som straff).`, "#e74c3c");
+                    setStatus(`Wrong guess! Click a FACE-UP card to turn down (penalty).`, "#e74c3c");
                 }
             }
             pendingGuessCard = null;
@@ -901,7 +897,7 @@
             let html = '';
             if (!isComplete) {
                 if (!isPlayed) {
-                    html = side === 'min' ? 'Nedåt' : 'Uppåt';
+                    html = side === 'min' ? 'Down' : 'Up';
                 } else {
                     html = generateCardHTML(val, suit);
                 }
@@ -937,7 +933,6 @@
                     minZone.classList.add('played-card');
                 }
 
-                // Genomskinligt överdrag via klassen inactive-zone om en joker ligger här
                 if (state.jokerMin) minZone.classList.add('inactive-zone');
 
                 if (!isCompleteMin) {
@@ -1032,10 +1027,10 @@
                 let allFacedown = p.buffer.length > 0 && p.buffer.every(c => c.isFacedown);
                 
                 if (allFacedown && pIndex === activeTurn && isMe && gamePhase === 'playing' && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'penalty')) {
-                    giveUpHtml = `<button class="give-up-btn" onclick="giveUp()">Ge upp</button>`;
+                    giveUpHtml = `<button class="give-up-btn" onclick="giveUp()">Give up</button>`;
                 }
                 
-                pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(Du)' : ''} ${giveUpHtml}</h3>`;
+                pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(You)' : ''} ${giveUpHtml}</h3>`;
 
                 const bufferSection = document.createElement('div');
                 bufferSection.className = 'player-section buffer-section';
@@ -1103,7 +1098,7 @@
                     handSection.appendChild(cardEl);
                 });
 
-                if (p.hand.length === 0) handSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Tom)</span>';
+                if (p.hand.length === 0) handSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
                 pDiv.appendChild(handSection);
                 
                 if (isMe) {
@@ -1144,7 +1139,8 @@
         socket.on('gameEnded', (data) => {
             gamePhase = 'gameover';
             interactionState = 'gameover';
-            setStatus(`💀 SPELET ÄR ÖVER! ${data.msg}`, "red");
+            document.title = "House of Jokers";
+            setStatus(`💀 GAME OVER! ${data.msg}`, "red");
             renderPlayers();
             renderBoard();
         });
