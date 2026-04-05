@@ -29,25 +29,90 @@
             display: block;
         }
 
-        /* Den nya statusrutan */
+        /* === PRATBUBBLA & JOKER-AVATAR === */
+        #statusContainer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px; /* Avstånd mellan avatar och pratbubbla */
+        }
+
+        .joker-avatar {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #d4af37;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
         #statusMessage {
             background-color: #ffffff;
             border: 3px solid #d4af37; 
             color: #000000; 
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 12px 20px;
+            border-radius: 15px; /* Mer rundade hörn för bubbel-känsla */
+            position: relative;
             display: inline-block;
-            min-width: 50%;
+            min-width: 40%;
+            max-width: 60%;
             font-weight: bold;
-            margin-bottom: 20px;
             box-sizing: border-box;
+            text-align: left; /* Ser snyggare ut i pratbubblor */
+        }
+
+        /* Pratbubblans yttre guld-triangel */
+        #statusMessage::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: -14px;
+            transform: translateY(-50%);
+            border-width: 10px 14px 10px 0;
+            border-style: solid;
+            border-color: transparent #d4af37 transparent transparent;
+        }
+
+        /* Pratbubblans inre vita triangel */
+        #statusMessage::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: -10px;
+            transform: translateY(-50%);
+            border-width: 8px 11px 8px 0;
+            border-style: solid;
+            border-color: transparent #ffffff transparent transparent;
+        }
+
+        /* === GLOBALA KONTROLLER (ALLTID SYNLIGA) === */
+        #globalControls {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        #muteBtn {
+            background: transparent;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            transition: opacity 0.2s;
+        }
+        
+        #muteBtn:hover {
+            opacity: 0.7;
         }
 
         /* === LOBBY UI === */
         .lobby-box {
-            margin-top: 20px; 
-            background: #155724; 
-            padding: 30px; border-radius: 10px;
+            margin-top: 20px; background: #155724; padding: 30px; border-radius: 10px;
             max-width: 400px; margin: 20px auto;
             border: 3px solid #d4af37; 
             color: #ecf0f1; 
@@ -67,7 +132,7 @@
         /* === SPEL UI === */
         #gameView { display: none; }
 
-        #topControls { position: absolute; top: 15px; right: 20px; display: flex; gap: 10px; }
+        #topControls { position: absolute; top: 15px; right: 70px; display: flex; gap: 10px; z-index: 999; }
         #topControls button { padding: 10px 15px; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit;}
         #instructionsBtn { background: #2980b9; }
         #leaveBtn { background: #e74c3c; }
@@ -77,17 +142,17 @@
 
         /* === MIN YTA (VÄNSTER, 50%) === */
         #myPlayerContainer { flex-basis: 50%; max-width: 50%; flex-shrink: 0; min-width: 300px; display: flex; }
+        
         #myPlayerContainer .player-area {
             width: 100%; margin: 0; display: flex; flex-direction: column;
-            background: #5a5a5a; /* Standardfärg är grå (när det INTE är din tur) */
+            background: #5a5a5a; 
             border: 5px solid #d4af37; 
             border-radius: 10px;
             padding: 10px;
             color: #ecf0f1;
-            transition: background-color 0.4s ease; /* Mjuk färgövergång */
+            transition: background-color 0.4s ease; 
         }
 
-        /* När det ÄR din tur blir den grön */
         #myPlayerContainer .player-area.active-turn {
             background: #155724; 
             outline: 3px solid #f1c40f;
@@ -110,6 +175,8 @@
         @media (max-width: 800px) {
             .game-top-row { flex-wrap: wrap; }
             #myPlayerContainer, #board { flex-basis: 100%; max-width: 100%; width: 100%; }
+            #statusContainer { flex-direction: column; }
+            #statusMessage::before, #statusMessage::after { display: none; /* Dölj svansen på små skärmar om de hamnar under varandra */ }
         }
 
         .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: transparent; padding: 5px; border-radius: 8px; }
@@ -136,8 +203,16 @@
         .red { color: #b01b0e; } 
         .black { color: #212121; } 
 
-        .facedown { background: #34495e !important; color: transparent !important; border: 2px solid #2c3e50 !important; position: relative; }
-        .facedown::after { content: "?"; color: #f1c40f; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 28px; }
+        .facedown { 
+            background-color: transparent !important; 
+            background-image: url('back-of-card.jpg') !important; 
+            background-size: cover !important;
+            background-position: center !important;
+            color: transparent !important; 
+            border: 1px solid #2c3e50 !important; 
+            position: relative; 
+        }
+        .facedown::after { display: none !important; }
         
         .penalty-target { border: 2px solid #e74c3c !important; box-shadow: 0 0 15px red !important; animation: pulse 1s infinite; }
         .proof-selected { border: 2px solid #2ecc71; box-shadow: 0 0 15px #2ecc71; transform: translateY(-5px); }
@@ -159,21 +234,45 @@
         .played-card { background: #fdfae7 !important; border: 1px solid #bdc3c7 !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
         
         .completed-zone {
-            background: #212121 !important; color: transparent !important; border: 2px solid #101010 !important; position: relative;
+            background-color: transparent !important; 
+            background-image: url('back-of-card.jpg') !important; 
+            background-size: cover !important;
+            background-position: center !important;
+            color: transparent !important; 
+            border: 1px solid #101010 !important; 
+            position: relative;
         }
-        .completed-zone::after { content: "?"; color: #ecf0f1; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 28px; opacity: 0.5;}
+        .completed-zone::after { display: none !important; }
 
-        /* Jokrar */
+        /* Jokrar - Vit bakgrund, 100% färg */
         .joker-badge {
-            position: absolute; top: -10px; right: -10px; font-size: 20px;
-            background: #f1c40f; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);
-            width: 28px; height: 28px; line-height: 28px; z-index: 10;
+            position: absolute; top: -15px; right: -15px;
+            background-color: #ffffff;
+            background-image: url('joker.png'); /* Använder joker.png precis som innan */
+            background-size: cover;
+            background-position: center;
+            border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);
+            width: 36px; height: 36px; z-index: 10; 
             transition: transform 0.2s, box-shadow 0.2s; pointer-events: none;
-            color: rgba(0,0,0,0.8); border: 2px solid #b7950b; font-family: serif; font-weight: bold;
+            border: 2px solid #333333; 
         }
         .joker-active-badge { box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; transform: scale(1.3); cursor: grab; pointer-events: auto; }
         .joker-active-badge:active { cursor: grabbing; }
-        .joker-inactive-badge { background: #5d5d5d !important; box-shadow: none !important; border: 2px solid #424242 !important; filter: grayscale(100%); opacity: 0.8; pointer-events: none; color: #ecf0f1;}
+        
+        .joker-inactive-badge { 
+            pointer-events: none; 
+        }
+
+        /* Gör själva kortet (men INTE jokern) inaktivt genom ett halvgenomskinligt lager */
+        .inactive-zone::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4); 
+            border-radius: 5px;
+            z-index: 5; 
+            pointer-events: none;
+        }
 
         .center-seven { font-size: 20px; margin: 0 10px; position: relative; }
         
@@ -189,7 +288,6 @@
             opacity: 0.7; transition: background-color 0.4s ease, opacity 0.3s; margin: 0; 
         }
         
-        /* Motståndarnas yta när det är deras tur */
         .opponent-area.active-turn { 
             opacity: 1; outline: 3px solid #f1c40f; background: #922b2b; 
         }
@@ -211,6 +309,14 @@
     </style>
 </head>
 <body>
+
+    <audio id="bgMusic" loop>
+        <source src="soundtrack.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="globalControls">
+        <button id="muteBtn" onclick="toggleMute()" title="Stäng av/på musik">🔊</button>
+    </div>
 
     <div id="lobbyStep1" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
@@ -255,7 +361,10 @@
 
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         
-        <div id="statusMessage">Laddar...</div>
+        <div id="statusContainer">
+            <img src="joker.jpg" alt="Jokern" class="joker-avatar">
+            <div id="statusMessage">Laddar...</div>
+        </div>
 
         <div id="gameWrapper">
             <div class="game-top-row">
@@ -389,9 +498,33 @@
         let selectedProofCard = null; 
         let cardToRevert = null; 
 
+        // Musikvariabler
+        let isMuted = false;
+        const bgMusic = document.getElementById('bgMusic');
+
         socket.on('yourId', (id) => { mySocketId = id; });
 
+        // Funktion för att slå av/på musik
+        function toggleMute() {
+            isMuted = !isMuted;
+            bgMusic.muted = isMuted;
+            document.getElementById('muteBtn').innerText = isMuted ? "🔇" : "🔊";
+            
+            // Försök starta om den var pausad (browser policy)
+            if (!isMuted && bgMusic.paused) {
+                bgMusic.play().catch(e => console.log("Audio blocked: ", e));
+            }
+        }
+
+        // Startar musiken vid första klick (krävs av webbläsare)
+        function startMusicOnInteraction() {
+            if (bgMusic.paused && !isMuted) {
+                bgMusic.play().catch(e => console.log("Audio blocked: ", e));
+            }
+        }
+
         function showCreateView() {
+            startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
             if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
             document.getElementById('lobbyError1').innerText = "";
@@ -400,6 +533,7 @@
         }
 
         function showJoinView() {
+            startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
             if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
             document.getElementById('lobbyError1').innerText = "";
@@ -414,6 +548,7 @@
         }
 
         function createGame() {
+            startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
             const roomName = document.getElementById('inputCreateRoomName').value;
             const maxPlayers = document.getElementById('inputPlayerCount').value;
@@ -432,6 +567,7 @@
         }
 
         function joinGame() {
+            startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
             const roomName = document.getElementById('inputJoinRoomName').value;
 
@@ -775,7 +911,7 @@
                 let isPickup = interactionState.startsWith('move_joker');
                 let badgeClass = isPickup ? 'joker-badge joker-active-badge' : 'joker-badge';
                 let dragHTML = isPickup ? `draggable="true" ondragstart="dragJoker(event, '${suit}', '${side}')"` : '';
-                html += `<div class="${badgeClass}" ${dragHTML}>🃏</div>`;
+                html += `<div class="${badgeClass}" ${dragHTML}></div>`;
             }
             return html;
         }
@@ -801,6 +937,9 @@
                     minZone.classList.add('played-card');
                 }
 
+                // Genomskinligt överdrag via klassen inactive-zone om en joker ligger här
+                if (state.jokerMin) minZone.classList.add('inactive-zone');
+
                 if (!isCompleteMin) {
                     minZone.ondrop = (ev) => drop(ev, suit, 'min');
                     minZone.ondragover = allowDrop;
@@ -811,6 +950,8 @@
                 const sevenCard = createCardDOM({ value: 7, suit: suit });
                 sevenCard.classList.add('center-seven');
                 
+                if (state.jokerCenter) sevenCard.classList.add('inactive-zone');
+
                 let suitComplete = (state.min === 1 && state.max === 13);
                 if (suitComplete) {
                     sevenCard.ondrop = (ev) => drop(ev, suit, 'center');
@@ -823,7 +964,7 @@
                     }
                 }
                 if (state.jokerCenter) {
-                    sevenCard.innerHTML += `<div class="joker-badge joker-inactive-badge">🃏</div>`;
+                    sevenCard.innerHTML += `<div class="joker-badge joker-inactive-badge"></div>`;
                 }
 
                 let isCompleteMax = state.max === 13;
@@ -835,6 +976,8 @@
                 } else if (state.max !== 7) {
                     maxZone.classList.add('played-card');
                 }
+
+                if (state.jokerMax) maxZone.classList.add('inactive-zone');
 
                 if (!isCompleteMax) {
                     maxZone.ondrop = (ev) => drop(ev, suit, 'max');
@@ -1001,7 +1144,7 @@
         socket.on('gameEnded', (data) => {
             gamePhase = 'gameover';
             interactionState = 'gameover';
-            setStatus(`💀 SPELET ÄR ÖVER! ${data.msg}`, "#e74c3c");
+            setStatus(`💀 SPELET ÄR ÖVER! ${data.msg}`, "red");
             renderPlayers();
             renderBoard();
         });
