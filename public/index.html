@@ -27,8 +27,9 @@
         #topControls button { padding: 10px 15px; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         #instructionsBtn { background: #3498db; }
         #instructionsBtn:hover { background: #2980b9; }
+        #leaveBtn { background: #e74c3c; }
+        #leaveBtn:hover { background: #c0392b; }
 
-        /* LAYOUT FÖR BRÄDE OCH EGEN SPELYTA */
         #gameWrapper {
             max-width: 1200px;
             margin: 0 auto;
@@ -107,6 +108,10 @@
         }
         .player-area.active-turn { opacity: 1; outline: 3px solid #f1c40f; background: rgba(0,0,0,0.3); }
         .player-section { margin-bottom: 10px; padding: 5px; background: rgba(255,255,255,0.05); border-radius: 5px;}
+        
+        /* Fixar höjden på bufferten så den inte hoppar */
+        .buffer-section { min-height: 85px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
+        
         .hand-card { transform: scale(0.85); margin: -2px; } 
 
         .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; }
@@ -162,6 +167,7 @@
     <div id="gameView">
         <div id="topControls">
             <button id="instructionsBtn" onclick="document.getElementById('instructionsDialog').showModal()">Spelinstruktioner</button>
+            <button id="leaveBtn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Lämna spel</button>
         </div>
 
         <h1>🃏 House of Jokers</h1>
@@ -180,6 +186,18 @@
             <div id="playersContainer"></div>
         </div>
     </div>
+
+    <dialog id="leaveConfirmDialog">
+        <h3>Är du säker?</h3>
+        <p>Vill du verkligen lämna spelet? Hela spelet förloras då.</p>
+        <button onclick="confirmLeave()" style="background: #e74c3c; color: white;">Ja</button>
+        <button onclick="document.getElementById('leaveConfirmDialog').close()">Nej</button>
+    </dialog>
+
+    <dialog id="playerLeftDialog">
+        <h3 id="playerLeftMsg" style="color: #e74c3c;">Någon lämnade spelet...</h3>
+        <button onclick="returnToLobby()">Gå tillbaka till startsidan</button>
+    </dialog>
 
     <dialog id="guessDialog">
         <h3>Vilket kort är detta?</h3>
@@ -290,7 +308,6 @@
         let selectedProofCard = null; 
         let cardToRevert = null; 
 
-        // Spara eget ID
         socket.on('yourId', (id) => {
             mySocketId = id;
         });
@@ -355,8 +372,37 @@
             });
         }
 
+        // Lämna spelet aktivt
+        function confirmLeave() {
+            document.getElementById('leaveConfirmDialog').close();
+            socket.emit('leaveGame', { roomName: myRoomName });
+            returnToLobby();
+        }
+
+        // Återvänd till startsidan (både om man lämnat och om spelet avbröts)
+        function returnToLobby() {
+            document.getElementById('playerLeftDialog').close();
+            
+            // Återställ lokala variabler
+            myRoomName = "";
+            localPlayers = [];
+            currentBoardState = {};
+            activeTurn = 0;
+            
+            // Göm spelvy, visa startsidan
+            document.getElementById('gameView').style.display = 'none';
+            document.getElementById('waitingView').style.display = 'none';
+            showStep1();
+        }
+
         socket.on('roomUpdate', (room) => {
             document.getElementById('waitingText').innerText = `Spelare anslutna: ${room.players.length} / ${room.maxPlayers}. Väntar...`;
+        });
+
+        // När nån annan lämnar spelet eller tabben stängs
+        socket.on('playerLeft', (data) => {
+            document.getElementById('playerLeftMsg').innerText = data.msg;
+            document.getElementById('playerLeftDialog').showModal();
         });
 
         // === SPEL-FUNKTIONER ===
@@ -733,9 +779,10 @@
                 
                 pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(Du)' : ''} ${giveUpHtml}</h3>`;
 
+                // Fix: Ingen text i buffert-rutan, men vi behåller CSS-klassen för höjden
                 const bufferSection = document.createElement('div');
-                bufferSection.className = 'player-section';
-                bufferSection.innerHTML = '<h4>Buffert</h4>';
+                bufferSection.className = 'player-section buffer-section';
+                bufferSection.innerHTML = '';
                 
                 p.buffer.forEach((card, bIndex) => {
                     const cardEl = createCardDOM(card, card.isFacedown);
@@ -763,7 +810,7 @@
                     }
                     bufferSection.appendChild(cardEl);
                 });
-                if (p.buffer.length === 0) bufferSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Tom)</span>';
+                
                 pDiv.appendChild(bufferSection);
 
                 const handSection = document.createElement('div');
