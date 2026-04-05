@@ -9,7 +9,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 function createDeck() {
-    const suits = ['♠', '♥', '♦', '♣'];
+    const suits = ['♠', '♥', '♣', '♦']; // Justerad ordning för snygg sortering
     const deck = [];
     suits.forEach(suit => {
         for (let value = 1; value <= 13; value++) {
@@ -92,6 +92,17 @@ io.on('connection', (socket) => {
             pIndex = (pIndex + 1) % room.players.length;
         }
 
+        // --- SORTERA SPELARNAS HÄNDER ---
+        const suitOrder = { '♠': 1, '♥': 2, '♣': 3, '♦': 4 };
+        room.players.forEach(p => {
+            p.hand.sort((a, b) => {
+                if (suitOrder[a.suit] !== suitOrder[b.suit]) {
+                    return suitOrder[a.suit] - suitOrder[b.suit];
+                }
+                return a.value - b.value;
+            });
+        });
+
         let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
         let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
         room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
@@ -118,13 +129,18 @@ io.on('connection', (socket) => {
 
         } else if (room.gamePhase === 'setup' && player.buffer.length < 3) {
             let card = player.hand.splice(cardIndex, 1)[0];
-            card.isFacedown = false;
+            // I setup-fasen sätter servern ALLA kort som nedvända
+            card.isFacedown = true; 
             player.buffer.push(card);
             
             if (player.buffer.length === 3) {
                 room.currentTurn = (room.currentTurn + 1) % room.players.length;
+                
+                // Om alla spelare har valt sina 3 kort
                 if (room.players.every(p => p.buffer.length === 3)) {
                     room.gamePhase = 'playing';
+                    // Vänd upp alla kort automatiskt
+                    room.players.forEach(p => p.buffer.forEach(c => c.isFacedown = false));
                 }
             }
             io.to(roomName).emit('updatePlayers', room);
@@ -178,7 +194,6 @@ io.on('connection', (socket) => {
         io.to(data.roomName).emit('gameEnded', { msg: data.msg });
     });
 
-    // NYTT: Spelaren lämnar aktivt via knappen
     socket.on('leaveGame', (data) => {
         handlePlayerLeave(socket.id, data.roomName);
     });
@@ -266,9 +281,7 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('updatePlayers', room);
     }
 
-    // NYTT: Funktion som hanterar att spelet avbryts om någon lämnar
     function handlePlayerLeave(socketId, specificRoom = null) {
-        // Om vi inte vet vilket rum, leta igenom alla
         let roomsToCheck = specificRoom ? [specificRoom] : Object.keys(rooms);
         
         for (let roomName of roomsToCheck) {
@@ -279,19 +292,16 @@ io.on('connection', (socket) => {
             if (playerIndex !== -1) {
                 let player = room.players[playerIndex];
                 
-                // Om spelet var igång, avbryt det för alla andra
                 if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
                     room.gamePhase = 'gameover';
                     io.to(roomName).emit('playerLeft', { msg: `${player.name} valde att lämna. Ni har förlorat.` });
                 }
                 
-                // Om spelaren var i lobbyn (waiting), ta bara bort dem
                 if (room.gamePhase === 'waiting') {
                     room.players.splice(playerIndex, 1);
                     io.to(roomName).emit('roomUpdate', room);
-                    if (room.players.length === 0) delete rooms[roomName]; // Radera om tomt
+                    if (room.players.length === 0) delete rooms[roomName]; 
                 } else {
-                    // Om spelet var igång och avbröts kan vi städa bort rummet från minnet
                     delete rooms[roomName];
                 }
             }
@@ -304,6 +314,7 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => {
-    console.log('House of Jokers rullar på port 3000');
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`House of Jokers rullar på port ${PORT}`);
 });
