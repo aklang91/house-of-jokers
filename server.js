@@ -27,16 +27,13 @@ function shuffle(array) {
     return array;
 }
 
-// Håller koll på alla aktiva spelrum
 const rooms = {};
 
 io.on('connection', (socket) => {
     console.log('En spelare anslöt:', socket.id);
     
-    // Ge spelaren sitt unika ID direkt vid anslutning
     socket.emit('yourId', socket.id);
 
-    // ================= LOBBY-LOGIK =================
     socket.on('createGame', (data, callback) => {
         const { playerName, roomName, maxPlayers } = data;
         
@@ -44,7 +41,6 @@ io.on('connection', (socket) => {
             return callback({ success: false, msg: "Ett rum med det namnet finns redan!" });
         }
 
-        // Skapa det nya rummet
         rooms[roomName] = {
             roomName: roomName,
             maxPlayers: parseInt(maxPlayers),
@@ -57,7 +53,7 @@ io.on('connection', (socket) => {
             },
             cardsPlayedCount: 0,
             currentTurn: 0,
-            gamePhase: 'waiting' // waiting, setup, playing, gameover
+            gamePhase: 'waiting' 
         };
 
         socket.join(roomName);
@@ -73,12 +69,10 @@ io.on('connection', (socket) => {
         if (room.gamePhase !== 'waiting') return callback({ success: false, msg: "Spelet har redan startat!" });
         if (room.players.length >= room.maxPlayers) return callback({ success: false, msg: "Rummet är fullt!" });
 
-        // Lägg till spelaren
         room.players.push({ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false });
         socket.join(roomName);
         callback({ success: true });
 
-        // Starta spelet om rummet blir fullt
         if (room.players.length === room.maxPlayers) {
             startGame(roomName);
         } else {
@@ -90,34 +84,27 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         room.gamePhase = 'setup';
         
-        let deck = shuffle(createDeck()).filter(card => card.value !== 7); // 48 kort
+        let deck = shuffle(createDeck()).filter(card => card.value !== 7); 
         
-        // Dela ut korten jämnt (ett i taget)
         let pIndex = 0;
         while(deck.length > 0) {
             room.players[pIndex].hand.push(deck.pop());
             pIndex = (pIndex + 1) % room.players.length;
         }
 
-        // Hitta vem som har flest kort (Startspelaren)
         let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
         let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
-        // Slumpa bland dem som har flest kort
         room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
 
         io.to(roomName).emit('gameState', room);
     }
 
-    // ================= SPEL-LOGIK =================
-    // Alla funktioner tar nu emot 'roomName' för att uppdatera rätt rum
-    
     socket.on('fillBuffer', (data, callback) => {
         const { roomName, pIndex, cardIndex } = data;
         let room = rooms[roomName];
         if(!room) return;
         let player = room.players[pIndex];
         
-        // Säkerställ att det faktiskt är den inloggade spelaren som skickar draget
         if (player.id !== socket.id) return callback({ success: false, msg: "Det är inte du!" });
 
         if (player.mustReplace) {
@@ -136,13 +123,8 @@ io.on('connection', (socket) => {
             
             if (player.buffer.length === 3) {
                 room.currentTurn = (room.currentTurn + 1) % room.players.length;
-                // Kolla om ALLA har 3 kort, då startar spelet
                 if (room.players.every(p => p.buffer.length === 3)) {
                     room.gamePhase = 'playing';
-                    // Återställ turen till startspelaren (som vi slumpade fram innan)
-                    // (Liten genväg: Vi lät currentTurn snurra, vi borde spara vem som startade, 
-                    // men för enkelhetens skull låter vi den som blev näst sist i setup-fasen få fortsätta, 
-                    // eller snurra vidare. Den logiken funkar bra ändå.)
                 }
             }
             io.to(roomName).emit('updatePlayers', room);
@@ -194,6 +176,11 @@ io.on('connection', (socket) => {
         if(!room) return;
         room.gamePhase = 'gameover';
         io.to(data.roomName).emit('gameEnded', { msg: data.msg });
+    });
+
+    // NYTT: Spelaren lämnar aktivt via knappen
+    socket.on('leaveGame', (data) => {
+        handlePlayerLeave(socket.id, data.roomName);
     });
 
     socket.on('playCard', (data, callback) => {
@@ -279,9 +266,41 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('updatePlayers', room);
     }
 
+    // NYTT: Funktion som hanterar att spelet avbryts om någon lämnar
+    function handlePlayerLeave(socketId, specificRoom = null) {
+        // Om vi inte vet vilket rum, leta igenom alla
+        let roomsToCheck = specificRoom ? [specificRoom] : Object.keys(rooms);
+        
+        for (let roomName of roomsToCheck) {
+            let room = rooms[roomName];
+            if (!room) continue;
+
+            let playerIndex = room.players.findIndex(p => p.id === socketId);
+            if (playerIndex !== -1) {
+                let player = room.players[playerIndex];
+                
+                // Om spelet var igång, avbryt det för alla andra
+                if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
+                    room.gamePhase = 'gameover';
+                    io.to(roomName).emit('playerLeft', { msg: `${player.name} valde att lämna. Ni har förlorat.` });
+                }
+                
+                // Om spelaren var i lobbyn (waiting), ta bara bort dem
+                if (room.gamePhase === 'waiting') {
+                    room.players.splice(playerIndex, 1);
+                    io.to(roomName).emit('roomUpdate', room);
+                    if (room.players.length === 0) delete rooms[roomName]; // Radera om tomt
+                } else {
+                    // Om spelet var igång och avbröts kan vi städa bort rummet från minnet
+                    delete rooms[roomName];
+                }
+            }
+        }
+    }
+
     socket.on('disconnect', () => {
         console.log('Spelare kopplade ifrån:', socket.id);
-        // Här kan du i framtiden lägga logik för att hantera om nån stänger webbläsaren mitt i spelet
+        handlePlayerLeave(socket.id);
     });
 });
 
