@@ -30,6 +30,7 @@
         #leaveBtn { background: #e74c3c; }
         #leaveBtn:hover { background: #c0392b; }
 
+        /* NY LAYOUT: WRAPPER OCH GRID (67% / 33%) */
         #gameWrapper {
             max-width: 1200px;
             margin: 0 auto;
@@ -43,27 +44,45 @@
             align-items: stretch; 
             gap: 20px;
             width: 100%;
-            flex-wrap: wrap; 
+            flex-wrap: nowrap; /* Tvingar dem att vara bredvid varandra på desktop */
         }
 
         #board { 
             padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; 
-            flex: 1; 
+            flex-basis: 67%; flex-grow: 1; /* Tar upp ~67% av bredden */
             min-width: 300px; margin: 0;
             display: flex; flex-direction: column;
         }
 
-        #myPlayerContainer { width: 320px; flex-shrink: 0; display: flex; }
+        #myPlayerContainer { 
+            flex-basis: 33%; flex-grow: 0; flex-shrink: 0; min-width: 250px; 
+            display: flex; 
+        }
+
         #myPlayerContainer .player-area { width: 100%; margin: 0; display: flex; flex-direction: column; }
+
+        @media (max-width: 800px) {
+            .game-top-row { flex-wrap: wrap; }
+            #myPlayerContainer, #board { flex-basis: 100%; width: 100%; }
+        }
 
         .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px; }
         
-        /* Kort och Zoner */
+        /* === NY KORTDESIGN === */
         .card { 
-            display: inline-block; width: 50px; height: 75px; background: white; color: black; 
-            border-radius: 5px; margin: 3px; line-height: 75px; font-size: 16px; font-weight: bold;
+            display: inline-block; width: 60px; height: 90px; background: white; color: black; 
+            border-radius: 5px; margin: 3px; font-weight: bold;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.5); vertical-align: middle; position: relative; user-select: none;
         }
+        
+        .card-corner {
+            position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1;
+        }
+        .top-left { top: 4px; left: 4px; }
+        .bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
+        .card-val { font-size: 18px; }
+        .card-suit { font-size: 20px; }
+
         .draggable { cursor: grab; }
         .draggable:active { cursor: grabbing; }
         .clickable { cursor: pointer; transition: 0.2s; }
@@ -71,22 +90,38 @@
         .red { color: #e74c3c; }
         .black { color: #2c3e50; }
         
-        .facedown { background: #7f8c8d; color: transparent; border: 2px solid #34495e; }
-        .facedown::after { content: "?"; color: white; display: block; position: absolute; width: 100%; top: 0; }
+        .facedown { background: #7f8c8d !important; color: transparent !important; border: 2px solid #34495e !important; position: relative; }
+        .facedown::after { content: "?"; color: white; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 24px; }
         
         .penalty-target { border: 2px solid #e74c3c !important; box-shadow: 0 0 10px red !important; animation: pulse 1s infinite; }
         .proof-selected { border: 2px solid #2ecc71; box-shadow: 0 0 15px #2ecc71; transform: translateY(-5px); }
 
         @keyframes pulse { 50% { opacity: 0.6; } }
         
+        /* DROP ZONES */
         .drop-zone { 
-            width: 60px; height: 85px; border: 2px dashed #bdc3c7; border-radius: 5px; margin: 0 15px; 
+            width: 60px; height: 90px; border: 2px dashed #bdc3c7; border-radius: 5px; margin: 0 10px; 
             display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;
-            transition: 0.2s; position: relative;
+            transition: all 0.2s ease-in-out; position: relative; background: transparent;
         }
-        .drop-zone.drag-over { background-color: rgba(46, 204, 113, 0.3); border-color: #2ecc71; }
-        .played-card { background: white !important; border: 1px solid #bdc3c7 !important; }
         
+        /* NY MARKERING NÄR KORT SVÄVAR ÖVER */
+        .drop-zone.drag-over { 
+            background-color: rgba(46, 204, 113, 0.4); 
+            border-color: #2ecc71; 
+            box-shadow: 0 0 20px 5px rgba(46, 204, 113, 0.8); /* Starkare markering */
+            transform: scale(1.05); /* Skjuter ut lite */
+            z-index: 20;
+        }
+
+        .played-card { background: white !important; border: 1px solid #bdc3c7 !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+        
+        /* Ny klass för färdig spelad sida */
+        .completed-zone {
+            background: #7f8c8d !important; color: transparent !important; border: 2px solid #34495e !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); position: relative;
+        }
+        .completed-zone::after { content: "?"; color: white; display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 24px; }
+
         /* Jokrar */
         .joker-badge {
             position: absolute; top: -10px; right: -10px; font-size: 20px;
@@ -98,7 +133,7 @@
         .joker-active-badge:active { cursor: grabbing; }
         .joker-inactive-badge { background: #bdc3c7 !important; box-shadow: none !important; border: 2px solid #7f8c8d !important; filter: grayscale(100%); opacity: 0.8; pointer-events: none; }
 
-        .center-seven { font-size: 20px; box-shadow: 0 0 10px rgba(255,255,255,0.2); margin: 0 15px; position: relative; }
+        .center-seven { font-size: 20px; margin: 0 10px; position: relative; }
         
         /* Spelare & Motspelare */
         #playersContainer { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; }
@@ -109,8 +144,8 @@
         .player-area.active-turn { opacity: 1; outline: 3px solid #f1c40f; background: rgba(0,0,0,0.3); }
         .player-section { margin-bottom: 10px; padding: 5px; background: rgba(255,255,255,0.05); border-radius: 5px;}
         
-        .buffer-section { min-height: 85px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
-        .hand-card { transform: scale(0.85); margin: -2px; } 
+        .buffer-section { min-height: 95px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
+        .hand-card { transform: scale(0.85); margin: -5px; } 
 
         .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; }
 
@@ -177,10 +212,8 @@
                     <h2>Bordet</h2>
                     <div id="boardContainer"></div>
                 </div>
-                
                 <div id="myPlayerContainer"></div>
             </div>
-
             <div id="playersContainer"></div>
         </div>
     </div>
@@ -306,16 +339,13 @@
         let selectedProofCard = null; 
         let cardToRevert = null; 
 
-        socket.on('yourId', (id) => {
-            mySocketId = id;
-        });
+        socket.on('yourId', (id) => { mySocketId = id; });
 
         // === LOBBY NAVIGATION OCH FUNKTIONER ===
         function showCreateView() {
             const playerName = document.getElementById('inputPlayerName').value;
             if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
             document.getElementById('lobbyError1').innerText = "";
-            
             document.getElementById('lobbyStep1').style.display = 'none';
             document.getElementById('createView').style.display = 'block';
         }
@@ -324,7 +354,6 @@
             const playerName = document.getElementById('inputPlayerName').value;
             if (!playerName) return document.getElementById('lobbyError1').innerText = "Du måste ange ett namn först!";
             document.getElementById('lobbyError1').innerText = "";
-            
             document.getElementById('lobbyStep1').style.display = 'none';
             document.getElementById('joinView').style.display = 'block';
         }
@@ -378,12 +407,10 @@
 
         function returnToLobby() {
             document.getElementById('playerLeftDialog').close();
-            
             myRoomName = "";
             localPlayers = [];
             currentBoardState = {};
             activeTurn = 0;
-            
             document.getElementById('gameView').style.display = 'none';
             document.getElementById('waitingView').style.display = 'none';
             showStep1();
@@ -654,14 +681,30 @@
             renderBoard(); 
         }
 
+        // --- NY KORTGENERATOR ---
+        function generateCardHTML(value, suit) {
+            let valStr = getCardName(value);
+            let colorClass = (suit === '♥' || suit === '♦') ? 'red' : 'black';
+            return `
+                <div class="card-corner top-left ${colorClass}">
+                    <div class="card-val">${valStr}</div>
+                    <div class="card-suit">${suit}</div>
+                </div>
+                <div class="card-corner bottom-right ${colorClass}">
+                    <div class="card-val">${valStr}</div>
+                    <div class="card-suit">${suit}</div>
+                </div>
+            `;
+        }
+
         function createCardDOM(card, isFacedown = false) {
             const cardDiv = document.createElement('div');
             cardDiv.className = 'card';
             if (isFacedown) {
                 cardDiv.classList.add('facedown');
+                cardDiv.innerHTML = '';
             } else {
-                cardDiv.classList.add(card.suit === '♥' || card.suit === '♦' ? 'red' : 'black');
-                cardDiv.innerText = getCardName(card.value) + card.suit;
+                cardDiv.innerHTML = generateCardHTML(card.value, card.suit);
             }
             return cardDiv;
         }
@@ -670,13 +713,16 @@
             let val = side === 'min' ? state.min : state.max;
             let hasJoker = side === 'min' ? state.jokerMin : state.jokerMax;
             let isPlayed = val !== 7; 
+            let isComplete = (side === 'min' && val === 1) || (side === 'max' && val === 13);
             
             let html = '';
-            if (!isPlayed) {
-                html = side === 'min' ? 'Nedåt' : 'Uppåt';
-            } else {
-                let cardColor = (suit === '♥' || suit === '♦') ? 'red' : 'black';
-                html = `<div style="color: ${cardColor === 'red' ? '#e74c3c' : '#2c3e50'}; font-size: 18px;">${getCardName(val)}${suit}</div>`;
+            // Om sidan är komplett styrs utseendet helt av CSS-klassen 'completed-zone'
+            if (!isComplete) {
+                if (!isPlayed) {
+                    html = side === 'min' ? 'Nedåt' : 'Uppåt';
+                } else {
+                    html = generateCardHTML(val, suit);
+                }
             }
             
             if (hasJoker) {
@@ -699,40 +745,59 @@
                 const row = document.createElement('div');
                 row.className = 'suit-row';
 
+                // --- MIN ZONE ---
+                let isCompleteMin = state.min === 1;
                 const minZone = document.createElement('div');
                 minZone.className = 'drop-zone'; 
-                if (state.min !== 7) minZone.classList.add('played-card');
-                minZone.ondrop = (ev) => drop(ev, suit, 'min');
-                minZone.ondragover = allowDrop;
-                minZone.ondragleave = dragLeave;
+                
+                if (isCompleteMin) {
+                    minZone.classList.add('completed-zone');
+                } else if (state.min !== 7) {
+                    minZone.classList.add('played-card');
+                }
+
+                if (!isCompleteMin) {
+                    minZone.ondrop = (ev) => drop(ev, suit, 'min');
+                    minZone.ondragover = allowDrop;
+                    minZone.ondragleave = dragLeave;
+                }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
 
+                // --- CENTER SJUA ---
                 const sevenCard = createCardDOM({ value: 7, suit: suit });
                 sevenCard.classList.add('center-seven');
                 
                 let suitComplete = (state.min === 1 && state.max === 13);
-                
                 if (suitComplete) {
                     sevenCard.ondrop = (ev) => drop(ev, suit, 'center');
                     sevenCard.ondragover = allowDrop;
                     sevenCard.ondragleave = dragLeave;
                     
                     if (interactionState.startsWith('move_joker') && !state.jokerCenter) {
-                        sevenCard.style.boxShadow = "0 0 15px #2ecc71";
+                        sevenCard.style.boxShadow = "0 0 20px 5px rgba(46, 204, 113, 0.8)";
                         sevenCard.style.border = "2px solid #2ecc71";
                     }
                 }
-                
                 if (state.jokerCenter) {
                     sevenCard.innerHTML += `<div class="joker-badge joker-inactive-badge">🃏</div>`;
                 }
 
+                // --- MAX ZONE ---
+                let isCompleteMax = state.max === 13;
                 const maxZone = document.createElement('div');
                 maxZone.className = 'drop-zone';
-                if (state.max !== 7) maxZone.classList.add('played-card');
-                maxZone.ondrop = (ev) => drop(ev, suit, 'max');
-                maxZone.ondragover = allowDrop;
-                maxZone.ondragleave = dragLeave;
+                
+                if (isCompleteMax) {
+                    maxZone.classList.add('completed-zone');
+                } else if (state.max !== 7) {
+                    maxZone.classList.add('played-card');
+                }
+
+                if (!isCompleteMax) {
+                    maxZone.ondrop = (ev) => drop(ev, suit, 'max');
+                    maxZone.ondragover = allowDrop;
+                    maxZone.ondragleave = dragLeave;
+                }
                 maxZone.innerHTML = createBoardZoneContent(state, 'max', suit);
 
                 row.appendChild(minZone);
@@ -758,7 +823,18 @@
             opponentsContainer.innerHTML = '';
             myContainer.innerHTML = '';
 
-            localPlayers.forEach((p, pIndex) => {
+            // Hitta mitt index för att kunna sortera motspelarna medsols
+            let myIndex = localPlayers.findIndex(p => p.id === mySocketId);
+            if (myIndex === -1) myIndex = 0; // Fallback om man bara är åskådare
+            
+            // Bygg en array med index i ordning: Jag först, sedan medsols
+            let orderedIndices = [];
+            for (let i = 0; i < localPlayers.length; i++) {
+                orderedIndices.push((myIndex + i) % localPlayers.length);
+            }
+
+            orderedIndices.forEach(pIndex => {
+                let p = localPlayers[pIndex];
                 let isMe = p.id === mySocketId;
                 const pDiv = document.createElement('div');
                 pDiv.className = `player-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
@@ -777,7 +853,6 @@
                 bufferSection.innerHTML = '';
                 
                 p.buffer.forEach((card, bIndex) => {
-                    // OM det är setup OCH det är mina kort, visa dem för mig! Annars följ serverns direktiv.
                     let showFacedown = card.isFacedown;
                     if (gamePhase === 'setup' && isMe) showFacedown = false;
 
@@ -842,9 +917,11 @@
                 if (p.hand.length === 0) handSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Tom)</span>';
                 pDiv.appendChild(handSection);
                 
+                // --- UPPDELNING AV RENDER ---
                 if (isMe) {
                     myContainer.appendChild(pDiv);
                 } else {
+                    // Eftersom loopen itererar i 'orderedIndices', läggs motspelarna automatiskt till från vänster till höger!
                     opponentsContainer.appendChild(pDiv);
                 }
             });

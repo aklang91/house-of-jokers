@@ -9,7 +9,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 function createDeck() {
-    const suits = ['♠', '♥', '♣', '♦']; // Justerad ordning för snygg sortering
+    const suits = ['♠', '♥', '♣', '♦']; 
     const deck = [];
     suits.forEach(suit => {
         for (let value = 1; value <= 13; value++) {
@@ -92,7 +92,6 @@ io.on('connection', (socket) => {
             pIndex = (pIndex + 1) % room.players.length;
         }
 
-        // --- SORTERA SPELARNAS HÄNDER ---
         const suitOrder = { '♠': 1, '♥': 2, '♣': 3, '♦': 4 };
         room.players.forEach(p => {
             p.hand.sort((a, b) => {
@@ -129,17 +128,13 @@ io.on('connection', (socket) => {
 
         } else if (room.gamePhase === 'setup' && player.buffer.length < 3) {
             let card = player.hand.splice(cardIndex, 1)[0];
-            // I setup-fasen sätter servern ALLA kort som nedvända
             card.isFacedown = true; 
             player.buffer.push(card);
             
             if (player.buffer.length === 3) {
                 room.currentTurn = (room.currentTurn + 1) % room.players.length;
-                
-                // Om alla spelare har valt sina 3 kort
                 if (room.players.every(p => p.buffer.length === 3)) {
                     room.gamePhase = 'playing';
-                    // Vänd upp alla kort automatiskt
                     room.players.forEach(p => p.buffer.forEach(c => c.isFacedown = false));
                 }
             }
@@ -253,6 +248,10 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
+        // --- SPÄRR: Kan inte flytta TILL en stängd (face-down) sida ---
+        if (toSide === 'min' && room.boardState[toSuit].min === 1) return callback({ success: false, msg: "Sidan är klar och stängd!" });
+        if (toSide === 'max' && room.boardState[toSuit].max === 13) return callback({ success: false, msg: "Sidan är klar och stängd!" });
+
         if (toSide === 'center') {
             if (room.boardState[toSuit].min !== 1 || room.boardState[toSuit].max !== 13) {
                 return callback({ success: false, msg: "Färgen är inte komplett än!" });
@@ -309,7 +308,6 @@ io.on('connection', (socket) => {
     }
 
     socket.on('disconnect', () => {
-        console.log('Spelare kopplade ifrån:', socket.id);
         handlePlayerLeave(socket.id);
     });
 });
