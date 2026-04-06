@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
                 '♣': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false }
             },
             cardsPlayedCount: 0,
-            currentTurn: 0,
+            currentTurn: -1, // Ingen har turen under setup
             gamePhase: 'waiting' 
         };
 
@@ -83,6 +83,7 @@ io.on('connection', (socket) => {
     function startGame(roomName) {
         let room = rooms[roomName];
         room.gamePhase = 'setup';
+        room.currentTurn = -1; // Parallel setup
         
         let deck = shuffle(createDeck()).filter(card => card.value !== 7); 
         
@@ -102,10 +103,6 @@ io.on('connection', (socket) => {
             });
         });
 
-        let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
-        let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
-        room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
-
         io.to(roomName).emit('gameState', room);
     }
 
@@ -117,6 +114,7 @@ io.on('connection', (socket) => {
         
         if (player.id !== socket.id) return callback({ success: false, msg: "That is not you!" });
 
+        // Ersätt ett spelat kort under spelets gång
         if (player.mustReplace) {
             let card = player.hand.splice(cardIndex, 1)[0];
             card.isFacedown = player.replaceFacedown; 
@@ -126,17 +124,21 @@ io.on('connection', (socket) => {
             nextTurn(roomName);
             callback({ success: true });
 
+        // Välja kort i startfasen (Sker parallellt)
         } else if (room.gamePhase === 'setup' && player.buffer.length < 3) {
             let card = player.hand.splice(cardIndex, 1)[0];
             card.isFacedown = true; 
             player.buffer.push(card);
             
-            if (player.buffer.length === 3) {
-                room.currentTurn = (room.currentTurn + 1) % room.players.length;
-                if (room.players.every(p => p.buffer.length === 3)) {
-                    room.gamePhase = 'playing';
-                    room.players.forEach(p => p.buffer.forEach(c => c.isFacedown = false));
-                }
+            // Kolla om alla spelare har valt sina tre kort
+            if (room.players.every(p => p.buffer.length === 3)) {
+                room.gamePhase = 'playing';
+                room.players.forEach(p => p.buffer.forEach(c => c.isFacedown = false));
+
+                // Beräkna vem som börjar
+                let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
+                let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
+                room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
             }
             io.to(roomName).emit('updatePlayers', room);
             callback({ success: true });
@@ -226,6 +228,15 @@ io.on('connection', (socket) => {
             let playedCardWasFacedown = cardInBuff.isFacedown || cardInBuff.revealedThisTurn;
             
             room.players[pIndex].buffer.splice(bIndex, 1);
+
+            // Vinstcheck
+            let isWin = Object.values(room.boardState).every(s => s.min === 1 && s.max === 13);
+            if (isWin) {
+                room.gamePhase = 'gameover';
+                io.to(roomName).emit('boardUpdated', room);
+                io.to(roomName).emit('gameWon', { msg: "Congratulations, you won the game together!" });
+                return callback({ success: true });
+            }
 
             if (room.players[pIndex].hand.length > 0) {
                 room.players[pIndex].mustReplace = true;

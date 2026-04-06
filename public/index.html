@@ -8,7 +8,10 @@
         /* === COMMON HISTORICAL STYLE === */
         body {
             background-color: #cacaca; 
-            background-image: none; 
+            background-image: url('background.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
             color: #212121; 
             text-align: center; margin: 0; padding: 10px;
             font-family: Georgia, 'Times New Roman', Times, serif; 
@@ -85,8 +88,19 @@
             top: 15px;
             right: 20px;
             z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
+        .global-btn { 
+            padding: 10px 15px; color: white; border: none; border-radius: 5px; 
+            cursor: pointer; font-weight: bold; font-family: inherit; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #instructionsBtn { background: #2980b9; }
+        #leaveBtn { background: #e74c3c; display: none; }
+
         #muteBtn {
             background: transparent;
             border: none;
@@ -95,6 +109,7 @@
             padding: 0;
             margin: 0;
             transition: opacity 0.2s;
+            box-shadow: none;
         }
         
         #muteBtn:hover {
@@ -123,16 +138,12 @@
         /* === GAME UI === */
         #gameView { display: none; }
 
-        #topControls { position: absolute; top: 15px; right: 70px; display: flex; gap: 10px; z-index: 999; }
-        #topControls button { padding: 10px 15px; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit;}
-        #instructionsBtn { background: #2980b9; }
-        #leaveBtn { background: #e74c3c; }
-
-        #gameWrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        #gameWrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
+        
         .game-top-row { display: flex; align-items: stretch; gap: 20px; width: 100%; flex-wrap: nowrap; }
 
         /* === MY AREA (LEFT, 50%) === */
-        #myPlayerContainer { flex-basis: 50%; max-width: 50%; flex-shrink: 0; min-width: 300px; display: flex; }
+        #myPlayerContainer { flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-shrink: 0; display: flex; box-sizing: border-box; }
         
         #myPlayerContainer .player-area {
             width: 100%; margin: 0; display: flex; flex-direction: column;
@@ -152,13 +163,14 @@
         /* === BOARD (RIGHT, 50%) === */
         #board {
             padding: 15px; border-radius: 10px;
-            flex-basis: 50%; max-width: 50%; flex-grow: 1; min-width: 300px; margin: 0;
+            flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-grow: 1; margin: 0;
             display: flex; flex-direction: column; justify-content: center;
             background-color: #1a5e2a; 
             background-image: url('wooden-table.jpg'); 
             background-size: cover;
             background-position: center;
             border: 5px solid #d4af37; 
+            box-sizing: border-box;
         }
 
         #board h2 { color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
@@ -205,10 +217,20 @@
         }
         .facedown::after { display: none !important; }
         
-        .penalty-target { border: 2px solid #e74c3c !important; box-shadow: 0 0 15px red !important; animation: pulse 1s infinite; }
-        .proof-selected { border: 2px solid #2ecc71; box-shadow: 0 0 15px #2ecc71; transform: translateY(-5px); }
+        /* === CARD GLOWS - Klarare och mindre utspridd === */
+        .glow-green { box-shadow: 0 0 8px 2px #2ecc71 !important; border: 2px solid #2ecc71 !important; }
+        .glow-red { box-shadow: 0 0 8px 2px #e74c3c !important; border: 2px solid #e74c3c !important; }
+        .glow-yellow { box-shadow: 0 0 8px 2px #f1c40f !important; border: 2px solid #f1c40f !important; }
 
-        @keyframes pulse { 50% { opacity: 0.6; } }
+        /* === SHIMMER REWARD EFFECT === */
+        @keyframes shimmerAnim {
+            0% { box-shadow: 0 0 30px 15px #f1c40f; transform: scale(1.15); background-color: #ffffff; border-color: #f1c40f; }
+            100% { box-shadow: 2px 2px 5px rgba(0,0,0,0.5); transform: scale(1); background-color: #fdfae7; border-color: #dcd7b9; }
+        }
+        .shimmer-effect {
+            animation: shimmerAnim 1.2s ease-out forwards;
+            z-index: 50;
+        }
         
         /* DROP ZONES */
         .drop-zone { 
@@ -244,10 +266,10 @@
             background-position: center;
             border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);
             width: 36px; height: 36px; z-index: 10; 
-            transition: transform 0.2s, box-shadow 0.2s; pointer-events: none;
+            transition: box-shadow 0.2s; pointer-events: none;
             border: 2px solid #333333; 
         }
-        .joker-active-badge { box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; transform: scale(1.3); cursor: grab; pointer-events: auto; }
+        .joker-active-badge { box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; cursor: grab; pointer-events: auto; }
         .joker-active-badge:active { cursor: grabbing; }
         
         .joker-inactive-badge { 
@@ -266,16 +288,21 @@
 
         .center-seven { font-size: 20px; margin: 0 10px; position: relative; }
         
-        /* Players */
-        #playersContainer { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; flex-direction: row-reverse; justify-content: center; }
+        /* Players Row */
+        #playersContainer { 
+            display: flex; gap: 20px; width: 100%; flex-wrap: nowrap; 
+            flex-direction: row-reverse; justify-content: center; box-sizing: border-box; 
+        }
         
         .opponent-area { 
             background: #7d1c1c; 
             border: 3px solid #d4af37; color: #ecf0f1;
             padding: 10px; border-radius: 10px; 
-            flex: 1; 
+            flex: 1 1 calc(50% - 20px); 
+            max-width: calc(50% - 10px);
             min-width: 220px;
             opacity: 0.7; transition: background-color 0.4s ease, opacity 0.3s; margin: 0; 
+            box-sizing: border-box;
         }
         
         .opponent-area.active-turn { 
@@ -289,13 +316,28 @@
 
         .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; font-family: inherit;}
 
+        /* Mobile adjustments */
+        @media (max-width: 800px) {
+            .game-top-row { flex-wrap: wrap; }
+            #myPlayerContainer, #board { flex-basis: 100%; max-width: 100%; width: 100%; }
+            #playersContainer { flex-wrap: wrap; } 
+            .opponent-area { min-width: 220px; }
+            #statusContainer { flex-direction: column; }
+            #statusMessage::after { display: none; }
+        }
+
         /* Modals */
-        dialog { border: none; border-radius: 8px; padding: 20px; background: #ecf0f1; text-align: center; font-family: inherit; color: black; }
+        dialog { border: none; border-radius: 8px; padding: 20px; background: #ecf0f1; text-align: center; font-family: inherit; color: black; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
         select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; font-family: inherit;}
         
         #instructionsDialog { width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; text-align: left; line-height: 1.6; color: #2c3e50; }
         .close-btn { display: block; margin: 20px auto 0; background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }
+        
+        /* Win Modal Specific */
+        #winDialog { border: 4px solid #d4af37; background: #fdfae7; }
+        #winDialog h2 { color: #155724; font-size: 2em; margin-bottom: 10px;}
+        #winDialog p { font-size: 1.2em; font-weight: bold; margin-bottom: 20px;}
     </style>
 </head>
 <body>
@@ -305,6 +347,8 @@
     </audio>
 
     <div id="globalControls">
+        <button id="leaveBtn" class="global-btn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Leave Game</button>
+        <button id="instructionsBtn" class="global-btn" onclick="document.getElementById('instructionsDialog').showModal()">Game Instructions</button>
         <button id="muteBtn" onclick="toggleMute()" title="Mute/Unmute Music">🔊</button>
     </div>
 
@@ -344,11 +388,6 @@
     </div>
 
     <div id="gameView">
-        <div id="topControls">
-            <button id="instructionsBtn" onclick="document.getElementById('instructionsDialog').showModal()">Game Instructions</button>
-            <button id="leaveBtn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Leave Game</button>
-        </div>
-
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         
         <div id="statusContainer">
@@ -377,6 +416,12 @@
     <dialog id="playerLeftDialog">
         <h3 id="playerLeftMsg" style="color: #e74c3c;">Someone left the game...</h3>
         <button onclick="returnToLobby()">Return to Lobby</button>
+    </dialog>
+
+    <dialog id="winDialog">
+        <h2>🎉 YOU WON! 🎉</h2>
+        <p id="winMsg">Congratulations, you won the game together!</p>
+        <button onclick="returnToLobby()" style="background: #2ecc71; color: white; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Back to start</button>
     </dialog>
 
     <dialog id="guessDialog">
@@ -410,7 +455,7 @@
             <li><strong>The Start:</strong> Take out all four sevens and place them in a row in the middle of the board.</li>
             <li><strong>Deal:</strong> Set the jokers aside. Deal all remaining cards evenly to the players. This is your hidden hand.</li>
             <li><strong>The Blind Choice:</strong> Each player selects three cards from their hand and places them face-down. These three slots are your playable cards.</li>
-            <li><strong>The Reveal:</strong> On a given signal, everyone reveals their three cards simultaneously.</li>
+            <li><strong>The Reveal:</strong> When all players have chosen, everyone reveals their three cards simultaneously.</li>
             <li><strong>Start:</strong> The player with the most cards in hand starts.</li>
         </ul>
 
@@ -431,25 +476,23 @@
         
         <h4>Option A: Play a card</h4>
         <ul>
-            <li>Play one of your playable cards to the correct spot on a straight.</li>
+            <li>Drag and play one of your green playable cards to the correct spot on a straight.</li>
             <li><strong>Lock the straight:</strong> If you play an Ace or a King, immediately turn that pile face down. That side is now closed.</li>
             <li><strong>Refill:</strong> Take a new card from your hand to fill the empty spot. Did you play a face-up card? Refill with a face-up card. Did you play a face-down card? Refill with a face-down card.</li>
         </ul>
 
-        <h4>Option B: Handle a Joker (Move or Remove)</h4>
+        <h4>Option B: Move a Joker</h4>
         <ul>
             <li>If you have a card (face-up or face-down) that could be played on a straight, you can choose to move a joker instead.</li>
-            <li><strong>The Proof:</strong><br><em>Face-up card:</em> Point to the playable card in front of you.<br><em>Face-down card:</em> State what the card is, show it to everyone, and return it face-down.</li>
-            <li><strong>Move:</strong> Move any joker to a new open endpoint.</li>
-            <li><strong>Remove:</strong> If a suit is completely finished (both Ace and King are played), you may use your turn to remove a joker entirely. Place it on the seven of that suit.</li>
-            <li><strong>No refill:</strong> Since you didn't play a card to the board, do not draw a new one.</li>
+            <li>If you have a face-up playable card, all movable jokers will automatically glow green. Just drag a green joker to a new open endpoint!</li>
+            <li><strong>Face-down:</strong> If you don't have a face-up playable card, you must click a yellow face-down card and guess it correctly. Once proven playable, the jokers will glow green.</li>
         </ul>
 
         <h3>5. If you CANNOT act</h3>
         <p>If none of your cards fit, or if your paths are entirely blocked by jokers:</p>
         <ul>
-            <li><strong>Penalty:</strong> You must choose one of your face-up playable cards and turn it face-down.</li>
-            <li><strong>The Mercy Rule:</strong> If you already have three face-down cards in front of you, you are 'at mercy'. If it becomes your turn again and you still can't move, or if you try to 'prove' a face-down card but guess wrong – the game is immediately lost for the whole group.</li>
+            <li><strong>Penalty:</strong> You must click one of your face-up red cards to turn it face-down.</li>
+            <li><strong>The Mercy Rule:</strong> If you already have three face-down cards in front of you, you are 'at mercy'. If it becomes your turn again and you still can't move, or if you try to guess a face-down card but guess wrong – the game is immediately lost for the whole group.</li>
         </ul>
 
         <h3>6. Laws of the Jokers</h3>
@@ -479,18 +522,22 @@
         
         let localPlayers = [];
         let currentBoardState = {};
-        let activeTurn = 0;
+        let activeTurn = -1; 
         let gamePhase = 'waiting'; 
         let cardsPlayedCount = 0;
         
         let interactionState = 'normal'; 
         let pendingGuessCard = null; 
-        let selectedProofCard = null; 
         let cardToRevert = null; 
+        
+        let lastPlayedLocal = null; 
 
         // Music Variables
         let isMuted = false;
         const bgMusic = document.getElementById('bgMusic');
+        
+        // Confetti Variables
+        let confettiCanvas, confettiCtx, confettiParticles = [];
 
         socket.on('yourId', (id) => { mySocketId = id; });
 
@@ -579,13 +626,20 @@
 
         function returnToLobby() {
             document.getElementById('playerLeftDialog').close();
+            document.getElementById('winDialog').close();
             myRoomName = "";
             localPlayers = [];
             currentBoardState = {};
             activeTurn = 0;
+            gamePhase = 'waiting';
+            
+            if (confettiCanvas) confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            confettiParticles = [];
+
             document.title = "House of Jokers"; 
             document.getElementById('gameView').style.display = 'none';
             document.getElementById('waitingView').style.display = 'none';
+            document.getElementById('leaveBtn').style.display = 'none'; 
             showStep1();
         }
 
@@ -613,38 +667,49 @@
         }
 
         function updateMainStatus() {
-            if (interactionState === 'move_joker_pickup' || interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'waiting' || interactionState === 'gameover') return; 
+            if (interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'waiting' || interactionState === 'gameover') return; 
             
+            let isMyTurn = false;
+            let nameDisplay = "";
+            
+            if (gamePhase === 'setup') {
+                let me = localPlayers.find(p => p.id === mySocketId);
+                if (me) {
+                    let needed = 3 - me.buffer.length;
+                    if (needed > 0) {
+                        setStatus(`SETUP: Pick ${needed} playable cards from your hand.`);
+                    } else {
+                        setStatus(`SETUP: Waiting for others to pick their cards...`);
+                    }
+                }
+                return;
+            }
+
             let player = localPlayers[activeTurn];
             if (!player) return;
 
-            let isMyTurn = (player.id === mySocketId);
-            let nameDisplay = isMyTurn ? "Your" : `${player.name}'s`;
+            isMyTurn = (player.id === mySocketId);
+            nameDisplay = isMyTurn ? "Your" : `${player.name}'s`;
 
             if (isMyTurn && gamePhase === 'playing') {
-                document.title = "Your turn - House of Jokers";
-            } else if (isMyTurn && gamePhase === 'setup') {
                 document.title = "Your turn - House of Jokers";
             } else {
                 document.title = "House of Jokers";
             }
 
-            if (gamePhase === 'setup') {
-                let cardsNeeded = 3 - player.buffer.length;
-                setStatus(`SETUP: ${nameDisplay} turn to pick ${cardsNeeded} playable cards.`);
-            } else if (player.mustReplace) {
+            if (player.mustReplace) {
                 if(isMyTurn) setStatus(`GAP: Click a card in your hand to replace the played card!`);
                 else setStatus(`Waiting for ${player.name} to refill their playable cards...`);
             } else {
                 if (interactionState === 'blocked') {
                     if(isMyTurn) {
-                        if (cardsPlayedCount < 3) setStatus(`⚠️ BLOCKED: You have no valid moves. Click a face-up card to turn it face-down.`, "#e74c3c");
-                        else setStatus(`⚠️ BLOCKED: You have no valid moves. Click a FACE-UP card (penalty) or GUESS a face-down card!`, "#e74c3c");
+                        if (cardsPlayedCount < 3) setStatus(`⚠️ BLOCKED: You have no valid moves. Click a red face-up card to turn it face-down.`, "#e74c3c");
+                        else setStatus(`⚠️ BLOCKED: You have no valid moves. Click a RED card (penalty) or GUESS a yellow face-down card!`, "#e74c3c");
                     } else {
                         setStatus(`⚠️ ${player.name} is blocked and must act.`, "#e74c3c");
                     }
                 } else {
-                    if(isMyTurn) setStatus(`Your turn. Drag a card to the board, or click one of your playable cards for proof/guess.`);
+                    if(isMyTurn) setStatus(`Your turn. Drag a green card to the board, or move a green joker.`);
                     else setStatus(`${player.name} is thinking...`);
                 }
             }
@@ -673,23 +738,26 @@
             if (interactionState === 'waiting' || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) { ev.preventDefault(); return; }
             if (pIndex !== activeTurn) { ev.preventDefault(); return; }
             
-            let isProof = selectedProofCard && selectedProofCard.bIndex === bIndex;
-            if (interactionState === 'normal' || (interactionState === 'move_joker_pickup' && isProof)) {
+            let card = localPlayers[pIndex].buffer[bIndex];
+            if (interactionState === 'normal' && isCardPlayable(card) && !card.isFacedown) {
                 ev.dataTransfer.setData("type", "card");
                 ev.dataTransfer.setData("pIndex", pIndex);
                 ev.dataTransfer.setData("bIndex", bIndex);
+                
+                setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0);
             } else {
                 ev.preventDefault();
             }
         }
 
         window.dragJoker = function(ev, suit, side) {
-            if (interactionState !== 'move_joker_pickup') { ev.preventDefault(); return; }
+            if (!ev.target.classList.contains('joker-active-badge')) { ev.preventDefault(); return; }
             ev.stopPropagation(); 
             ev.dataTransfer.setData("type", "joker");
             ev.dataTransfer.setData("fromSuit", suit);
             ev.dataTransfer.setData("fromSide", side);
-            if(ev.target) ev.dataTransfer.setDragImage(ev.target, 13, 13);
+            
+            setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0);
         };
 
         function drop(ev, toSuit, toSide) {
@@ -700,7 +768,7 @@
 
             let type = ev.dataTransfer.getData("type");
 
-            if (type === "joker" && interactionState === 'move_joker_pickup') {
+            if (type === "joker") {
                 let fromSuit = ev.dataTransfer.getData("fromSuit");
                 let fromSide = ev.dataTransfer.getData("fromSide");
                 let state = currentBoardState[toSuit];
@@ -732,11 +800,11 @@
                 socket.emit('playCard', { roomName: myRoomName, pIndex, bIndex, card, toSuit: toSuit, toSide: toSide }, (res) => {
                     interactionState = 'normal'; 
                     if (!res.success) {
-                        if (selectedProofCard) interactionState = 'move_joker_pickup';
                         setStatus("❌ " + res.msg, "#e74c3c");
                         setTimeout(updateMainStatus, 2500); 
                     } else {
-                        selectedProofCard = null; 
+                        lastPlayedLocal = { suit: toSuit, side: toSide, time: Date.now() };
+                        renderBoard();
                     }
                     renderPlayers(); 
                 });
@@ -765,51 +833,26 @@
                 return;
             }
 
-            if (card.isFacedown && (interactionState === 'blocked' || interactionState === 'normal')) {
-                document.getElementById('guessSuit').value = '♥';
-                document.getElementById('guessValue').value = '1';
-                pendingGuessCard = { pIndex, bIndex, card };
-                document.getElementById('guessDialog').showModal();
-                return;
-            }
-
             if (interactionState === 'blocked') {
-                setStatus("❌ You are blocked! Choose a face-up card (red border) to turn down, or guess a face-down one.", "#e74c3c");
-                return;
-            }
-
-            if (interactionState === 'move_joker_pickup') {
-                if (selectedProofCard && selectedProofCard.pIndex === pIndex && selectedProofCard.bIndex === bIndex) {
-                    interactionState = 'normal';
-                    selectedProofCard = null;
-                    updateMainStatus();
-                    renderPlayers(); 
-                    renderBoard(); 
-                    return;
+                if (card.isFacedown) {
+                    document.getElementById('guessSuit').value = '♥';
+                    document.getElementById('guessValue').value = '1';
+                    pendingGuessCard = { pIndex, bIndex, card };
+                    document.getElementById('guessDialog').showModal();
                 } else {
-                    setStatus("❌ You have already selected a proof! Click it again to cancel.", "#e74c3c");
-                    return;
+                    interactionState = 'waiting'; 
+                    socket.emit('flipCard', { roomName: myRoomName, pIndex, bIndex });
                 }
+                return;
             }
 
             if (interactionState === 'normal') {
-                if (cardsPlayedCount < 3) {
-                    setStatus("❌ Jokers are not activated yet! You must play the card normally.", "#e74c3c");
-                    setTimeout(updateMainStatus, 3000);
-                    return;
+                if (card.isFacedown) {
+                    document.getElementById('guessSuit').value = '♥';
+                    document.getElementById('guessValue').value = '1';
+                    pendingGuessCard = { pIndex, bIndex, card };
+                    document.getElementById('guessDialog').showModal();
                 }
-
-                if (!isCardPlayable(card)) {
-                    setStatus("❌ You cannot use this card as proof, because it doesn't fit anywhere on the board!", "#e74c3c");
-                    setTimeout(updateMainStatus, 3500);
-                    return;
-                }
-
-                selectedProofCard = { pIndex, bIndex, card };
-                interactionState = 'move_joker_pickup';
-                setStatus("Card proven! Now drag the card to the board, or drag a joker to move it.");
-                renderPlayers();
-                renderBoard();
             }
         }
 
@@ -826,17 +869,10 @@
                 pendingGuessCard.card.isFacedown = false; 
                 
                 let isPlayable = isCardPlayable(actualCard);
-                let jokersActive = cardsPlayedCount >= 3;
 
                 if (isPlayable) {
-                    if (jokersActive) {
-                        selectedProofCard = pendingGuessCard;
-                        interactionState = 'move_joker_pickup';
-                        setStatus("Correct guess! Drag the card to the board, or drag a joker to move it.");
-                    } else {
-                        interactionState = 'normal';
-                        setStatus("Correct guess! Now drag the card to the board.");
-                    }
+                    interactionState = 'normal';
+                    setStatus("Correct guess! You can now play it or move a joker.");
                 } else {
                     if (faceUpCountBefore === 0) {
                         interactionState = 'gameover';
@@ -904,15 +940,21 @@
             }
             
             if (hasJoker) {
-                let isPickup = interactionState.startsWith('move_joker');
-                let badgeClass = isPickup ? 'joker-badge joker-active-badge' : 'joker-badge';
-                let dragHTML = isPickup ? `draggable="true" ondragstart="dragJoker(event, '${suit}', '${side}')"` : '';
-                html += `<div class="${badgeClass}" ${dragHTML}></div>`;
+                html += `<div class="joker-badge"></div>`; 
             }
             return html;
         }
 
         function renderBoard() {
+            let myTurnHasPlayable = false;
+            let isMyTurn = localPlayers[activeTurn] && localPlayers[activeTurn].id === mySocketId;
+            if (isMyTurn && gamePhase === 'playing' && !localPlayers[activeTurn].mustReplace) {
+                localPlayers[activeTurn].buffer.forEach(c => {
+                    if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true;
+                });
+            }
+            let jokersActive = myTurnHasPlayable && cardsPlayedCount >= 3 && interactionState === 'normal';
+
             const boardDiv = document.getElementById('boardContainer');
             boardDiv.innerHTML = '';
             
@@ -923,6 +965,7 @@
                 const row = document.createElement('div');
                 row.className = 'suit-row';
 
+                // --- MIN ZONE ---
                 let isCompleteMin = state.min === 1;
                 const minZone = document.createElement('div');
                 minZone.className = 'drop-zone'; 
@@ -935,13 +978,30 @@
 
                 if (state.jokerMin) minZone.classList.add('inactive-zone');
 
+                if (lastPlayedLocal && Date.now() - lastPlayedLocal.time < 1500 && lastPlayedLocal.suit === suit && lastPlayedLocal.side === 'min') {
+                    minZone.classList.add('shimmer-effect');
+                }
+
                 if (!isCompleteMin) {
                     minZone.ondrop = (ev) => drop(ev, suit, 'min');
                     minZone.ondragover = allowDrop;
                     minZone.ondragleave = dragLeave;
                 }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
+                
+                let minJoker = minZone.querySelector('.joker-badge');
+                if(minJoker) {
+                    if(jokersActive) {
+                        minJoker.classList.add('joker-active-badge');
+                        minJoker.draggable = true;
+                        minJoker.ondragstart = (ev) => dragJoker(ev, suit, 'min');
+                        minJoker.ondragend = (ev) => { ev.target.style.opacity = '1'; };
+                    } else {
+                        minJoker.classList.add('joker-inactive-badge');
+                    }
+                }
 
+                // --- CENTER ---
                 const sevenCard = createCardDOM({ value: 7, suit: suit });
                 sevenCard.classList.add('center-seven');
                 
@@ -952,16 +1012,14 @@
                     sevenCard.ondrop = (ev) => drop(ev, suit, 'center');
                     sevenCard.ondragover = allowDrop;
                     sevenCard.ondragleave = dragLeave;
-                    
-                    if (interactionState.startsWith('move_joker') && !state.jokerCenter) {
-                        sevenCard.style.boxShadow = "0 0 20px 5px rgba(46, 204, 113, 0.8)";
-                        sevenCard.style.border = "2px solid #2ecc71";
-                    }
                 }
                 if (state.jokerCenter) {
-                    sevenCard.innerHTML += `<div class="joker-badge joker-inactive-badge"></div>`;
+                    let jBadge = document.createElement('div');
+                    jBadge.className = 'joker-badge joker-inactive-badge';
+                    sevenCard.appendChild(jBadge);
                 }
 
+                // --- MAX ZONE ---
                 let isCompleteMax = state.max === 13;
                 const maxZone = document.createElement('div');
                 maxZone.className = 'drop-zone';
@@ -974,12 +1032,28 @@
 
                 if (state.jokerMax) maxZone.classList.add('inactive-zone');
 
+                if (lastPlayedLocal && Date.now() - lastPlayedLocal.time < 1500 && lastPlayedLocal.suit === suit && lastPlayedLocal.side === 'max') {
+                    maxZone.classList.add('shimmer-effect');
+                }
+
                 if (!isCompleteMax) {
                     maxZone.ondrop = (ev) => drop(ev, suit, 'max');
                     maxZone.ondragover = allowDrop;
                     maxZone.ondragleave = dragLeave;
                 }
                 maxZone.innerHTML = createBoardZoneContent(state, 'max', suit);
+                
+                let maxJoker = maxZone.querySelector('.joker-badge');
+                if(maxJoker) {
+                    if(jokersActive) {
+                        maxJoker.classList.add('joker-active-badge');
+                        maxJoker.draggable = true;
+                        maxJoker.ondragstart = (ev) => dragJoker(ev, suit, 'max');
+                        maxJoker.ondragend = (ev) => { ev.target.style.opacity = '1'; };
+                    } else {
+                        maxJoker.classList.add('joker-inactive-badge');
+                    }
+                }
 
                 row.appendChild(minZone);
                 row.appendChild(sevenCard);
@@ -990,13 +1064,16 @@
 
         function renderPlayers() {
             let player = localPlayers[activeTurn];
+            let myTurnHasPlayable = false;
 
-            if (player && player.id === mySocketId && interactionState === 'normal' && gamePhase === 'playing' && !player.mustReplace) {
-                let hasPlayableFaceUp = false;
+            if (player && player.id === mySocketId && gamePhase === 'playing' && !player.mustReplace) {
                 player.buffer.forEach(c => {
-                    if (!c.isFacedown && isCardPlayable(c)) hasPlayableFaceUp = true;
+                    if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true;
                 });
-                if (!hasPlayableFaceUp) interactionState = 'blocked';
+                
+                if (!myTurnHasPlayable && interactionState === 'normal') {
+                    interactionState = 'blocked';
+                }
             }
 
             const opponentsContainer = document.getElementById('playersContainer');
@@ -1017,10 +1094,13 @@
                 let isMe = p.id === mySocketId;
                 const pDiv = document.createElement('div');
                 
+                // Om det är spelets gång och det är din tur, eller om det är setup och det är din ruta
+                let isMyTurnOrSetup = (pIndex === activeTurn && gamePhase === 'playing') || (isMe && gamePhase === 'setup');
+
                 if (isMe) {
-                    pDiv.className = `player-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
+                    pDiv.className = `player-area ${isMyTurnOrSetup ? 'active-turn' : ''}`;
                 } else {
-                    pDiv.className = `opponent-area ${pIndex === activeTurn ? 'active-turn' : ''}`;
+                    pDiv.className = `opponent-area ${pIndex === activeTurn && gamePhase === 'playing' ? 'active-turn' : ''}`;
                 }
                 
                 let giveUpHtml = '';
@@ -1042,26 +1122,34 @@
 
                     const cardEl = createCardDOM(card, showFacedown);
                     
-                    if (isMe && pIndex === activeTurn && interactionState !== 'gameover') {
-                        let isProof = selectedProofCard && selectedProofCard.bIndex === bIndex;
+                    if (isMe && pIndex === activeTurn && interactionState !== 'gameover' && gamePhase === 'playing') {
                         let isCardToRevert = cardToRevert && cardToRevert.bIndex === bIndex;
                         
-                        if ((interactionState === 'normal' || (interactionState === 'move_joker_pickup' && isProof)) && gamePhase === 'playing' && !p.mustReplace) {
-                            if(!card.isFacedown) {
-                                cardEl.classList.add('draggable');
-                                cardEl.draggable = true;
-                                cardEl.ondragstart = (ev) => dragCard(ev, pIndex, bIndex);
+                        if (card.isFacedown) {
+                            cardEl.classList.add('glow-yellow');
+                            cardEl.classList.add('clickable');
+                            if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                        } else {
+                            if (isCardPlayable(card)) {
+                                cardEl.classList.add('glow-green');
+                                if (interactionState === 'normal' && !p.mustReplace) {
+                                    cardEl.classList.add('draggable');
+                                    cardEl.draggable = true;
+                                    cardEl.ondragstart = (ev) => {
+                                        dragCard(ev, pIndex, bIndex);
+                                        setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); 
+                                    };
+                                    cardEl.ondragend = (ev) => { ev.target.style.opacity = '1'; };
+                                }
+                            } else {
+                                cardEl.classList.add('glow-red');
                             }
-                        } 
+                        }
                         
                         if ((interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'blocked') && !card.isFacedown && !isCardToRevert) {
                             cardEl.classList.add('penalty-target', 'clickable');
-                        } 
-                        
-                        if (isProof) cardEl.classList.add('proof-selected');
-
-                        cardEl.classList.add('clickable'); 
-                        if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                            if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                        }
                     }
                     bufferSection.appendChild(cardEl);
                 });
@@ -1077,9 +1165,9 @@
                     cardEl.classList.add('hand-card');
                     
                     let canClickHand = false;
-                    if (isMe && pIndex === activeTurn && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) {
+                    if (isMe) {
                         if (gamePhase === 'setup' && p.buffer.length < 3) canClickHand = true;
-                        if (gamePhase === 'playing' && p.mustReplace) canClickHand = true; 
+                        if (gamePhase === 'playing' && pIndex === activeTurn && p.mustReplace && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) canClickHand = true; 
                     }
                     
                     if (canClickHand) {
@@ -1111,12 +1199,60 @@
             updateMainStatus();
         }
 
+        /* === CONFETTI ENGINE === */
+        function fireConfetti() {
+            if (!confettiCanvas) {
+                confettiCanvas = document.createElement('canvas');
+                confettiCanvas.style.position = 'fixed';
+                confettiCanvas.style.top = '0';
+                confettiCanvas.style.left = '0';
+                confettiCanvas.style.width = '100vw';
+                confettiCanvas.style.height = '100vh';
+                confettiCanvas.style.pointerEvents = 'none';
+                confettiCanvas.style.zIndex = '9999';
+                document.body.appendChild(confettiCanvas);
+                confettiCtx = confettiCanvas.getContext('2d');
+            }
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+            
+            confettiParticles = [];
+            for(let i=0; i<150; i++) {
+                confettiParticles.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                    r: Math.random() * 6 + 4,
+                    dx: Math.random() * 4 - 2,
+                    dy: Math.random() * 5 + 2,
+                    color: `hsl(${Math.random()*360}, 100%, 50%)`
+                });
+            }
+            drawConfetti();
+        }
+
+        function drawConfetti() {
+            if (gamePhase !== 'gameover') return; 
+            requestAnimationFrame(drawConfetti);
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            
+            confettiParticles.forEach(p => {
+                p.y += p.dy;
+                p.x += p.dx;
+                if (p.y > confettiCanvas.height) p.y = -10; 
+                confettiCtx.beginPath();
+                confettiCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.fill();
+            });
+        }
+
         socket.on('gameState', (data) => {
             document.getElementById('lobbyStep1').style.display = 'none';
             document.getElementById('createView').style.display = 'none';
             document.getElementById('joinView').style.display = 'none';
             document.getElementById('waitingView').style.display = 'none';
             document.getElementById('gameView').style.display = 'block';
+            document.getElementById('leaveBtn').style.display = 'block';
 
             currentBoardState = data.boardState;
             localPlayers = data.players;
@@ -1124,16 +1260,25 @@
             gamePhase = data.gamePhase;
             cardsPlayedCount = data.cardsPlayedCount;
             interactionState = gamePhase === 'gameover' ? 'gameover' : 'normal';
-            selectedProofCard = null;
             cardToRevert = null;
+            renderPlayers(); 
             renderBoard();
-            renderPlayers();
         });
 
         socket.on('boardUpdated', (data) => {
             currentBoardState = data.boardState;
             cardsPlayedCount = data.cardsPlayedCount;
+            renderPlayers();
             renderBoard();
+        });
+
+        socket.on('gameWon', (data) => {
+            gamePhase = 'gameover';
+            interactionState = 'gameover';
+            document.title = "House of Jokers";
+            setStatus(`🎉 ${data.msg}`, "#2ecc71");
+            document.getElementById('winDialog').showModal();
+            fireConfetti();
         });
 
         socket.on('gameEnded', (data) => {
@@ -1156,7 +1301,6 @@
             
             if (turnChanged || interactionState === 'waiting') {
                 interactionState = 'normal';
-                selectedProofCard = null;
                 cardToRevert = null;
             }
             renderPlayers();
