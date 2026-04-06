@@ -238,6 +238,7 @@ io.on('connection', (socket) => {
                 return callback({ success: true });
             }
 
+            // Kontrollera om spelaren har kort kvar på handen för att tvinga fram påfyllnad
             if (room.players[pIndex].hand.length > 0) {
                 room.players[pIndex].mustReplace = true;
                 room.players[pIndex].replaceFacedown = playedCardWasFacedown;
@@ -246,6 +247,7 @@ io.on('connection', (socket) => {
                 io.to(roomName).emit('updatePlayers', room);
                 callback({ success: true });
             } else {
+                // Skicka turen vidare direkt om spelaren inte har några fler kort i handen att fylla på med
                 nextTurn(roomName);
                 callback({ success: true });
             }
@@ -283,8 +285,22 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
+        // Nollställ eventuella temporärt visade kort
         room.players.forEach(p => p.buffer.forEach(c => c.revealedThisTurn = false));
-        room.currentTurn = (room.currentTurn + 1) % room.players.length;
+        
+        let startIndex = room.currentTurn;
+        let nextIndex = (startIndex + 1) % room.players.length;
+        
+        // Loopa för att hitta nästa spelare som inte är helt färdig (har kort på hand ELLER i buffer)
+        while (nextIndex !== startIndex) {
+            let p = room.players[nextIndex];
+            if (p.hand.length > 0 || p.buffer.length > 0) {
+                break; // Vi hittade en aktiv spelare, avbryt sökningen
+            }
+            nextIndex = (nextIndex + 1) % room.players.length;
+        }
+        
+        room.currentTurn = nextIndex;
         
         io.to(roomName).emit('boardUpdated', room);
         io.to(roomName).emit('updatePlayers', room);
