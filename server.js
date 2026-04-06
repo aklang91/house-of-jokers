@@ -43,8 +43,9 @@ io.on('connection', (socket) => {
 
         rooms[roomName] = {
             roomName: roomName,
+            host: socket.id, // Värden för rummet
             maxPlayers: parseInt(maxPlayers),
-            players: [{ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false }],
+            players: [{ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false }],
             boardState: {
                 '♠': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
                 '♥': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
@@ -52,7 +53,7 @@ io.on('connection', (socket) => {
                 '♣': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false }
             },
             cardsPlayedCount: 0,
-            currentTurn: -1, // Ingen har turen under setup
+            currentTurn: -1, 
             gamePhase: 'waiting' 
         };
 
@@ -69,21 +70,26 @@ io.on('connection', (socket) => {
         if (room.gamePhase !== 'waiting') return callback({ success: false, msg: "The game has already started!" });
         if (room.players.length >= room.maxPlayers) return callback({ success: false, msg: "The room is full!" });
 
-        room.players.push({ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false });
+        room.players.push({ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false });
         socket.join(roomName);
         callback({ success: true });
 
-        if (room.players.length === room.maxPlayers) {
-            startGame(roomName);
-        } else {
-            io.to(roomName).emit('roomUpdate', room);
+        // Auto-start är nu borta härifrån!
+        io.to(roomName).emit('roomUpdate', room);
+    });
+
+    // NY: Lyssna efter att hosten klickar på Start Round
+    socket.on('startRound', (data) => {
+        let room = rooms[data.roomName];
+        if (room && room.host === socket.id && room.players.length === room.maxPlayers) {
+            startGame(data.roomName);
         }
     });
 
     function startGame(roomName) {
         let room = rooms[roomName];
         room.gamePhase = 'setup';
-        room.currentTurn = -1; // Parallel setup
+        room.currentTurn = -1; 
         
         let deck = shuffle(createDeck()).filter(card => card.value !== 7); 
         
@@ -106,6 +112,30 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('gameState', room);
     }
 
+    socket.on('confirmSetup', (data, callback) => {
+        const { roomName, pIndex, buffer, hand } = data;
+        let room = rooms[roomName];
+        if (!room) return;
+        let player = room.players[pIndex];
+        if (player.id !== socket.id) return;
+
+        player.buffer = buffer.map(c => ({...c, isFacedown: true}));
+        player.hand = hand;
+        player.setupConfirmed = true;
+
+        if (room.players.every(p => p.setupConfirmed)) {
+            room.gamePhase = 'playing';
+            room.players.forEach(p => p.buffer.forEach(c => c.isFacedown = false));
+
+            let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
+            let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
+            room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        
+        io.to(roomName).emit('updatePlayers', room);
+        callback({ success: true });
+    });
+
     socket.on('fillBuffer', (data, callback) => {
         const { roomName, pIndex, cardIndex } = data;
         let room = rooms[roomName];
@@ -114,38 +144,17 @@ io.on('connection', (socket) => {
         
         if (player.id !== socket.id) return callback({ success: false, msg: "That is not you!" });
 
-        // Ersätt ett spelat kort under spelets gång
         if (player.mustReplace) {
             let card = player.hand.splice(cardIndex, 1)[0];
             card.isFacedown = player.replaceFacedown; 
             
-            // HÄR: Lägg in kortet på exakt den plats det gamla spelades ifrån
             let insertAt = (player.replaceIndex !== undefined) ? player.replaceIndex : player.buffer.length;
             player.buffer.splice(insertAt, 0, card);
             
             player.mustReplace = false;
-            delete player.replaceIndex; // Rensa
+            delete player.replaceIndex; 
             
             nextTurn(roomName);
-            callback({ success: true });
-
-        // Välja kort i startfasen (Sker parallellt)
-        } else if (room.gamePhase === 'setup' && player.buffer.length < 3) {
-            let card = player.hand.splice(cardIndex, 1)[0];
-            card.isFacedown = true; 
-            player.buffer.push(card);
-            
-            // Kolla om alla spelare har valt sina tre kort
-            if (room.players.every(p => p.buffer.length === 3)) {
-                room.gamePhase = 'playing';
-                room.players.forEach(p => p.buffer.forEach(c => c.isFacedown = false));
-
-                // Beräkna vem som börjar
-                let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
-                let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
-                room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
-            }
-            io.to(roomName).emit('updatePlayers', room);
             callback({ success: true });
         } else {
             callback({ success: false, msg: "You cannot select more cards right now!" });
@@ -229,14 +238,15 @@ io.on('connection', (socket) => {
                 if (toSide === 'min') suitState.jokerMin = true;
             }
 
+            room.lastAction = { type: 'play', playerName: room.players[pIndex].name, card, side: toSide };
+            room.lastActionTime = Date.now();
+
             let cardInBuff = room.players[pIndex].buffer[bIndex];
             let playedCardWasFacedown = cardInBuff.isFacedown || cardInBuff.revealedThisTurn;
             
-            // Spara undan indexet innan vi plockar bort kortet!
             room.players[pIndex].replaceIndex = bIndex;
             room.players[pIndex].buffer.splice(bIndex, 1);
 
-            // Vinstcheck
             let isWin = Object.values(room.boardState).every(s => s.min === 1 && s.max === 13);
             if (isWin) {
                 room.gamePhase = 'gameover';
@@ -245,7 +255,6 @@ io.on('connection', (socket) => {
                 return callback({ success: true });
             }
 
-            // Kontrollera om spelaren har kort kvar på handen för att tvinga fram påfyllnad
             if (room.players[pIndex].hand.length > 0) {
                 room.players[pIndex].mustReplace = true;
                 room.players[pIndex].replaceFacedown = playedCardWasFacedown;
@@ -254,7 +263,6 @@ io.on('connection', (socket) => {
                 io.to(roomName).emit('updatePlayers', room);
                 callback({ success: true });
             } else {
-                // Skicka turen vidare direkt om spelaren inte har några fler kort i handen att fylla på med
                 nextTurn(roomName);
                 callback({ success: true });
             }
@@ -264,7 +272,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('moveJoker', (data, callback) => {
-        const { roomName, fromSuit, fromSide, toSuit, toSide } = data;
+        const { roomName, pIndex, fromSuit, fromSide, toSuit, toSide } = data;
         let room = rooms[roomName];
         if(!room) return;
 
@@ -284,6 +292,9 @@ io.on('connection', (socket) => {
         if (toSide === 'max') room.boardState[toSuit].jokerMax = true;
         if (toSide === 'center') room.boardState[toSuit].jokerCenter = true;
 
+        room.lastAction = { type: 'joker', playerName: room.players[pIndex].name };
+        room.lastActionTime = Date.now();
+
         nextTurn(roomName);
         callback({ success: true });
     });
@@ -292,17 +303,15 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
-        // Nollställ eventuella temporärt visade kort
         room.players.forEach(p => p.buffer.forEach(c => c.revealedThisTurn = false));
         
         let startIndex = room.currentTurn;
         let nextIndex = (startIndex + 1) % room.players.length;
         
-        // Loopa för att hitta nästa spelare som inte är helt färdig (har kort på hand ELLER i buffer)
         while (nextIndex !== startIndex) {
             let p = room.players[nextIndex];
             if (p.hand.length > 0 || p.buffer.length > 0) {
-                break; // Vi hittade en aktiv spelare, avbryt sökningen
+                break;
             }
             nextIndex = (nextIndex + 1) % room.players.length;
         }
@@ -329,12 +338,17 @@ io.on('connection', (socket) => {
                     io.to(roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
                 }
                 
-                if (room.gamePhase === 'waiting') {
-                    room.players.splice(playerIndex, 1);
+                room.players.splice(playerIndex, 1);
+
+                // Reassign host if the host left while waiting
+                if (room.gamePhase === 'waiting' && room.players.length > 0) {
+                    if (room.host === socketId) room.host = room.players[0].id;
                     io.to(roomName).emit('roomUpdate', room);
-                    if (room.players.length === 0) delete rooms[roomName]; 
-                } else {
-                    delete rooms[roomName];
+                }
+
+                // RADERA RUMMET OM ALLA HAR LÄMNAT DET (Fix för rum-återskapande!)
+                if (room.players.length === 0) {
+                    delete rooms[roomName]; 
                 }
             }
         }
