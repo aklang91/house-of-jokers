@@ -121,7 +121,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         #instructionsBtn { background: #2980b9; }
-        #leaveBtn { background: #e74c3c; display: none; }
+        #leaveBtn { display: none; } /* Styrs dynamiskt, men vi sätter den till röd via klass */
 
         #muteBtn {
             background: transparent;
@@ -149,12 +149,14 @@
 
         .lobby-input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #7f8c8d; font-size: 16px; background: #ecf0f1; font-family: inherit;}
         .lobby-btn { width: 45%; padding: 12px; margin: 5px 2%; border: 1px solid transparent; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; font-family: inherit; }
-        .btn-create { background: #c0392b; color: white; } 
-        .btn-create:hover { background: #e74c3c; }
-        .btn-join { background: #f39c12; color: white; } 
-        .btn-join:hover { background: #f1c40f; }
-        .btn-back { background: #f39c12; color: white; } 
-        .btn-back:hover { background: #f1c40f; }
+        
+        /* Nya universella knappfärger */
+        .btn-green { background: #2ecc71; color: white; } 
+        .btn-green:hover { background: #27ae60; }
+        .btn-red { background: #e74c3c; color: white; } 
+        .btn-red:hover { background: #c0392b; }
+        .btn-yellow { background: #f39c12; color: white; } 
+        .btn-yellow:hover { background: #f1c40f; }
         
         #createView, #joinView, #waitingView { display: none; }
         
@@ -361,7 +363,7 @@
         .buffer-section { min-height: 95px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
         .hand-card { margin: 4px; } 
 
-        .give-up-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; font-family: inherit;}
+        .give-up-btn { color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; font-family: inherit;}
 
         /* Mobile adjustments */
         @media (max-width: 800px) {
@@ -379,7 +381,6 @@
         select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; font-family: inherit;}
         
         #instructionsDialog { width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; text-align: left; line-height: 1.6; color: #2c3e50; background: #ecf0f1; }
-        .close-btn { display: block; margin: 20px auto 0; background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }
         
         /* Win/Lose Modals Specific Styling */
         #winDialog { border: 4px solid #d4af37; background: #155724; color: #ecf0f1; }
@@ -402,7 +403,7 @@
     </audio>
 
     <div id="globalControls">
-        <button id="leaveBtn" class="global-btn" onclick="document.getElementById('leaveConfirmDialog').showModal()">Leave Game</button>
+        <button id="leaveBtn" class="global-btn btn-red" onclick="document.getElementById('leaveConfirmDialog').showModal()">Leave round</button>
         <button id="instructionsBtn" class="global-btn" onclick="document.getElementById('instructionsDialog').showModal()">Game Instructions</button>
         <button id="muteBtn" onclick="toggleMute()" title="Mute/Unmute Music">🔊</button>
     </div>
@@ -411,8 +412,8 @@
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <h3 style="font-size: 2.5em; margin-bottom: 15px;">Welcome!</h3>
         <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Enter your player name" required><br><br>
-        <button class="lobby-btn btn-create" onclick="showCreateView()">New Game</button>
-        <button class="lobby-btn btn-join" onclick="showJoinView()">Join Game</button>
+        <button class="lobby-btn btn-green" onclick="showCreateView()">New Game</button>
+        <button class="lobby-btn btn-yellow" onclick="showJoinView()">Join Game</button>
         <p id="lobbyError1" style="color: #e74c3c;"></p>
     </div>
 
@@ -424,16 +425,16 @@
             <option value="4">4 Players</option>
             <option value="5">5 Players</option>
         </select><br><br>
-        <button class="lobby-btn btn-create" onclick="createGame()">Create Game</button>
-        <button class="lobby-btn btn-back" onclick="showStep1()">Back</button>
+        <button class="lobby-btn btn-green" onclick="createGame()">Create Game</button>
+        <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
         <p id="lobbyErrorCreate" style="color: #e74c3c;"></p>
     </div>
 
     <div id="joinView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Room Name" required><br><br>
-        <button class="lobby-btn btn-join" onclick="joinGame()">Join</button>
-        <button class="lobby-btn btn-back" onclick="showStep1()">Back</button>
+        <button class="lobby-btn btn-green" onclick="joinGame()">Join</button>
+        <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
         <p id="lobbyErrorJoin" style="color: #e74c3c;"></p>
     </div>
 
@@ -441,13 +442,13 @@
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <h3 id="waitingRoomName" style="color: #ffffff; border-bottom: 1px solid #d4af37; padding-bottom: 10px;">Room name: </h3>
         
-        <h3 style="color: #f1c40f; margin-top: 15px;">Connected players:</h3>
+        <h3 style="color: #ffffff; margin-top: 15px;">Connected players:</h3>
         <div id="waitingJoinMessages" style="margin: 10px 0; color: #ffffff; font-weight: bold; line-height: 1.5; font-style: normal;"></div>
         
         <h4 id="waitingText" style="color: #ffffff; margin-top: 15px;">Waiting for players...</h4>
         
-        <button id="startRoundBtn" class="lobby-btn btn-join" style="display: none; background: #2ecc71; color: white; margin-top: 15px; width: 100%;" onclick="startRound()">Start round</button>
-        <button class="lobby-btn btn-create" style="margin-top: 15px; width: 100%;" onclick="leaveQueue()">Leave queue</button>
+        <button id="startRoundBtn" class="lobby-btn btn-green" style="display: none; margin-top: 15px; width: 100%;" onclick="startRound()">Start round</button>
+        <button class="lobby-btn btn-red" style="margin-top: 15px; width: 100%;" onclick="leaveQueue()">Leave queue</button>
     </div>
 
     <div id="gameView">
@@ -474,33 +475,33 @@
     <dialog id="leaveConfirmDialog" style="background:#ecf0f1;">
         <h3>Are you sure?</h3>
         <p>Do you really want to leave? The entire game will be lost.</p>
-        <button onclick="confirmLeave()" style="background: #e74c3c; color: white; border:none; padding:8px 15px; border-radius:5px;">Yes</button>
-        <button onclick="document.getElementById('leaveConfirmDialog').close()" style="background: #f39c12; color: white; border:none; padding:8px 15px; border-radius:5px;">No</button>
+        <button class="btn-red" onclick="confirmLeave()" style="border:none; padding:8px 15px; border-radius:5px;">Yes</button>
+        <button class="btn-yellow" onclick="document.getElementById('leaveConfirmDialog').close()" style="border:none; padding:8px 15px; border-radius:5px;">No</button>
     </dialog>
 
     <dialog id="giveUpConfirmDialog" style="background:#ecf0f1;">
         <h3>Give Up?</h3>
         <p>Are you sure you want to give up? This ends the game for everyone.</p>
-        <button onclick="confirmGiveUp()" style="background: #e74c3c; color: white; border:none; padding:8px 15px; border-radius:5px;">Yes</button>
-        <button onclick="document.getElementById('giveUpConfirmDialog').close()" style="background: #f39c12; color: white; border:none; padding:8px 15px; border-radius:5px;">No</button>
+        <button class="btn-red" onclick="confirmGiveUp()" style="border:none; padding:8px 15px; border-radius:5px;">Yes</button>
+        <button class="btn-yellow" onclick="document.getElementById('giveUpConfirmDialog').close()" style="border:none; padding:8px 15px; border-radius:5px;">No</button>
     </dialog>
 
     <dialog id="playerLeftDialog">
         <h3>The Joker Wins!</h3>
         <p id="playerLeftMsg">Someone left the game...</p>
-        <button onclick="returnToLobby()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to Lobby</button>
+        <button class="btn-red" onclick="returnToLobby()" style="border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to home</button>
     </dialog>
 
     <dialog id="winDialog">
         <h2>YOU WON!</h2>
         <p id="winMsg">Congratulations, you won the game together!</p>
-        <button onclick="returnToLobby()" style="background: #2ecc71; color: white; border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Back to start</button>
+        <button class="btn-green" onclick="returnToLobby()" style="border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to home</button>
     </dialog>
 
     <dialog id="loseDialog">
         <h2>GAME OVER</h2>
         <p id="loseMsg">You lost...</p>
-        <button onclick="returnToLobby()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to Lobby</button>
+        <button class="btn-red" onclick="returnToLobby()" style="border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to home</button>
     </dialog>
 
     <dialog id="guessDialog" style="background:#ecf0f1;">
@@ -520,8 +521,8 @@
                 <option value="13">K</option>
             </select>
         </div>
-        <button onclick="submitGuess()" style="background: #2ecc71; color:white; border:none; padding:8px 15px; border-radius:5px;">Guess</button>
-        <button onclick="document.getElementById('guessDialog').close()" style="background: #e74c3c; color:white; border:none; padding:8px 15px; border-radius:5px;">Cancel</button>
+        <button class="btn-green" onclick="submitGuess()" style="border:none; padding:8px 15px; border-radius:5px;">Guess</button>
+        <button class="btn-red" onclick="document.getElementById('guessDialog').close()" style="border:none; padding:8px 15px; border-radius:5px;">Cancel</button>
     </dialog>
 
     <dialog id="instructionsDialog">
@@ -563,7 +564,7 @@
         <h4>Option B: Move a Joker</h4>
         <ul>
             <li>If you have a card (face-up or face-down) that could be played on a straight, you can choose to move a joker instead.</li>
-            <li>If you have a face-up playable card, all movable jokers will automatically glow green. Just drag a green joker to a new open endpoint!</li>
+            <li>If you have a face-up playable card, all movable jokers will automatically glow green. Just click or drag a green joker to a new open endpoint!</li>
             <li><strong>Face-down:</strong> If you don't have a face-up playable card, you must click a yellow face-down card and guess it correctly. Once proven playable, the jokers will glow green.</li>
         </ul>
 
@@ -589,7 +590,7 @@
             <li><strong>Finished player:</strong> When a player has played all their cards, they are completely done and no longer participate in the round. The remaining players continue to play in clockwise order.</li>
         </ul>
 
-        <button class="close-btn" onclick="document.getElementById('instructionsDialog').close()">Close Instructions</button>
+        <button class="close-btn btn-red" onclick="document.getElementById('instructionsDialog').close()">Close Instructions</button>
     </dialog>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -618,7 +619,6 @@
         let setupSelection = { hand: [], buffer: [] };
         let setupInitialized = false;
 
-        // Variabel för Click-to-Move Jokrar
         let selectedJokerInfo = null;
 
         let tauntTimeout = null;
@@ -778,14 +778,14 @@
             document.getElementById('waitingJoinMessages').innerHTML = playerListHTML;
 
             if (room.players.length === room.maxPlayers) {
-                document.getElementById('waitingText').style.display = 'none'; // Döljer texten
+                document.getElementById('waitingText').style.display = 'none'; 
                 if (room.host === mySocketId) {
                     document.getElementById('startRoundBtn').style.display = 'inline-block';
                 } else {
                     document.getElementById('startRoundBtn').style.display = 'none';
                 }
             } else {
-                document.getElementById('waitingText').style.display = 'block'; // Visar texten igen
+                document.getElementById('waitingText').style.display = 'block'; 
                 document.getElementById('waitingText').innerText = `Waiting for players... (${room.players.length}/${room.maxPlayers})`;
                 document.getElementById('startRoundBtn').style.display = 'none';
             }
@@ -960,13 +960,12 @@
             }
         }
 
-        // Klicka på Joker för att flytta den på surfplatta
         window.clickJoker = function(ev, suit, side) {
             ev.stopPropagation(); 
             if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === side) {
-                selectedJokerInfo = null; // Avmarkera om man klickar igen
+                selectedJokerInfo = null; 
             } else {
-                selectedJokerInfo = { suit, side }; // Markera jokern
+                selectedJokerInfo = { suit, side }; 
             }
             renderBoard(); 
         };
@@ -974,7 +973,6 @@
         window.handleZoneClick = function(ev, toSuit, toSide) {
             if (ev) ev.stopPropagation();
             
-            // Gör bara något om man har markerat en joker och är redo att släppa den
             if (!selectedJokerInfo) return; 
             if (interactionState === 'waiting' || interactionState === 'gameover' || gamePhase === 'setup') return;
 
@@ -992,7 +990,7 @@
                 let pIndex = localPlayers.findIndex(p => p.id === mySocketId);
                 socket.emit('moveJoker', { roomName: myRoomName, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
                     interactionState = 'normal';
-                    selectedJokerInfo = null; // Ta bort markeringen efter draget
+                    selectedJokerInfo = null; 
                     if(!res.success) {
                         let msg = res.msg;
                         if (msg.includes("already taken")) msg = "Oops, that spot already has a joker!";
@@ -1263,7 +1261,7 @@
                     minZone.ondrop = (ev) => drop(ev, suit, 'min');
                     minZone.ondragover = allowDrop;
                     minZone.ondragleave = dragLeave;
-                    minZone.onclick = (ev) => handleZoneClick(ev, suit, 'min'); // Klicka för att släppa jokern
+                    minZone.onclick = (ev) => handleZoneClick(ev, suit, 'min');
                 }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
                 
@@ -1275,7 +1273,7 @@
                         minJoker.ondragstart = (ev) => dragJoker(ev, suit, 'min');
                         minJoker.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                         
-                        minJoker.onclick = (ev) => clickJoker(ev, suit, 'min'); // Klicka för att markera
+                        minJoker.onclick = (ev) => clickJoker(ev, suit, 'min'); 
                         if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'min') {
                             minJoker.classList.add('joker-selected');
                         }
@@ -1405,7 +1403,7 @@
                 let allFacedown = p.buffer.length > 0 && p.buffer.every(c => c.isFacedown);
                 
                 if (allFacedown && pIndex === activeTurn && isMe && gamePhase === 'playing' && !p.mustReplace && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'penalty')) {
-                    giveUpHtml = `<button class="give-up-btn" onclick="giveUp()">Give up</button>`;
+                    giveUpHtml = `<button class="give-up-btn btn-red" onclick="giveUp()">Give up</button>`;
                 }
                 
                 pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(You)' : ''} ${giveUpHtml}</h3>`;
@@ -1500,8 +1498,9 @@
                 pDiv.appendChild(handSection);
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
-                    let confirmBtnColor = setupSelection.buffer.length === 3 ? '#2ecc71' : '#7f8c8d';
                     let confirmDisabled = setupSelection.buffer.length !== 3 ? 'disabled' : '';
+                    let confirmColorClass = setupSelection.buffer.length === 3 ? 'btn-green' : '';
+                    let confirmStyle = setupSelection.buffer.length !== 3 ? 'background: #7f8c8d;' : '';
                     
                     let setupControls = document.createElement('div');
                     setupControls.style.display = 'flex';
@@ -1514,7 +1513,7 @@
                     
                     setupControls.innerHTML = `
                         <button style="background:transparent; color:#ecf0f1; border:none; box-shadow:none; font-size:24px; cursor:pointer; padding: 0; line-height: 1;" onclick="undoSetup()" title="Undo selection">↺</button>
-                        <button class="give-up-btn" style="background:${confirmBtnColor}; font-size: 11px; margin: 0; padding: 6px 12px; transition: background 0.3s;" onclick="confirmSetup()" ${confirmDisabled}>Confirm cards</button>
+                        <button class="${confirmColorClass}" style="${confirmStyle} border: none; font-size: 13px; font-weight: bold; margin: 0; padding: 6px 12px; border-radius: 5px; transition: background 0.3s; font-family: inherit; cursor: pointer;" onclick="confirmSetup()" ${confirmDisabled}>Confirm cards</button>
                     `;
                     pDiv.appendChild(setupControls);
                 }
@@ -1620,7 +1619,7 @@
             }
             previousCardsPlayedCount = cardsPlayedCount;
             
-            selectedJokerInfo = null; // Rensa eventuella valda jokrar när brädet uppdateras
+            selectedJokerInfo = null; 
             renderPlayers();
             renderBoard();
         });
