@@ -118,9 +118,14 @@ io.on('connection', (socket) => {
         if (player.mustReplace) {
             let card = player.hand.splice(cardIndex, 1)[0];
             card.isFacedown = player.replaceFacedown; 
-            player.buffer.push(card);
+            
+            // HÄR: Lägg in kortet på exakt den plats det gamla spelades ifrån
+            let insertAt = (player.replaceIndex !== undefined) ? player.replaceIndex : player.buffer.length;
+            player.buffer.splice(insertAt, 0, card);
             
             player.mustReplace = false;
+            delete player.replaceIndex; // Rensa
+            
             nextTurn(roomName);
             callback({ success: true });
 
@@ -227,6 +232,8 @@ io.on('connection', (socket) => {
             let cardInBuff = room.players[pIndex].buffer[bIndex];
             let playedCardWasFacedown = cardInBuff.isFacedown || cardInBuff.revealedThisTurn;
             
+            // Spara undan indexet innan vi plockar bort kortet!
+            room.players[pIndex].replaceIndex = bIndex;
             room.players[pIndex].buffer.splice(bIndex, 1);
 
             // Vinstcheck
