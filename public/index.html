@@ -427,7 +427,8 @@
            MOBILE RESPONSIVE LAYOUT 
            ========================================= */
         @media (max-width: 800px) {
-            .game-logo { margin-top: 60px !important; }
+            /* Tydligare marginaler ovanför logotypen */
+            #gameView .game-logo { margin-top: 60px !important; }
             .lobby-box { padding: 15px !important; width: 95% !important; margin: 70px auto 20px auto !important; box-sizing: border-box; }
             
             #globalControls { top: 10px; right: 10px; gap: 5px; }
@@ -461,7 +462,7 @@
             
             .opponent-hand-title-text { display: none !important; }
             .opponent-hand-cards { display: none !important; } 
-            .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; }
+            .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; margin-top: 5px; }
 
             /* My Player Sticky Dashboard */
             #myPlayerContainer { 
@@ -480,15 +481,20 @@
                 gap: 10px !important; width: 100% !important; padding-bottom: 5px !important;
             }
 
-            /* Dynamisk bredd sätts i JS, men detta fixar ramen/layouten */
-            .buffer-section {
-                background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
-                padding: 8px !important; display: flex !important; flex-direction: column !important; align-items: flex-start !important;
-                box-sizing: border-box !important; margin-bottom: 0 !important;
+            .buffer-wrapper {
+                /* Dynamisk bredd sätts i JS, men detta fixar ramen/layouten */
+                flex: 0 0 auto !important;
+                min-width: 110px !important; /* Minsta bredd */
             }
 
             .hand-wrapper {
                 flex: 1 !important; min-width: 0 !important;
+            }
+
+            .buffer-section {
+                background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
+                padding: 8px !important; display: flex !important; flex-direction: column !important; align-items: flex-start !important;
+                box-sizing: border-box !important; margin-bottom: 0 !important;
             }
 
             .player-section { 
@@ -499,9 +505,18 @@
                 box-sizing: border-box !important;
             }
 
-            .my-cards-container h4, .playable-title-mobile { 
+            .playable-title-mobile { 
                 display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important; 
                 text-align: left; color: #f1c40f; font-family: 'Pirata One', display, cursive; width: 100%;
+                line-height: 20px;
+            }
+
+            #myPlayerContainer h4 { 
+                display: block !important; 
+                margin: 0 0 5px 0 !important;
+                font-size: 16px !important;
+                text-align: left;
+                color: #f1c40f;
                 line-height: 20px;
             }
 
@@ -511,11 +526,13 @@
             }
 
             .buffer-cards-div { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; justify-content: flex-start !important; }
+            
+            /* Tvinga handkorten att börja ritas från VÄNSTER så de inte kapas ur bild när de överfyller containern */
             .my-hand-cards { 
-                display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; 
-                overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 5px !important;
+                display: flex !important; flex-wrap: nowrap !important; justify-content: flex-start !important; gap: 5px !important; 
+                overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 10px !important; padding-left: 2px !important;
             }
-            .my-hand-cards::after { content: ''; flex: 0 0 10px; } /* Fixar avklippt scroll */
+            .my-hand-cards::after { content: ''; flex: 0 0 10px; } /* Fixar avklippt scroll längst till höger */
             
             .my-cards-container .card { margin: 0 !important; }
             
@@ -1610,8 +1627,10 @@
 
                 const bufferWrapper = document.createElement('div');
                 bufferWrapper.className = 'buffer-wrapper';
-                // Dynamisk bredd baserad på rummets svårighetsgrad (Normal = 3 kort, Hard = 2 kort)
-                let bw = roomBufferSize === 3 ? 168 : 117;
+                // Beräkna bredden på mobilen: (antal kort * 46px) + ((antal kort - 1) * 5px gap) + 16px padding
+                // Normal (3 kort): (3*46) + (2*5) + 16 = 138 + 10 + 16 = 164px
+                // Hard (2 kort): (2*46) + (1*5) + 16 = 92 + 5 + 16 = 113px
+                let bw = roomBufferSize === 3 ? 164 : 113;
                 bufferWrapper.style.flex = `0 0 ${bw}px`;
                 bufferWrapper.style.minWidth = `${bw}px`;
                 
