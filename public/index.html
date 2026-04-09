@@ -34,6 +34,7 @@
         }
         .player-section h4 {
             font-size: 22px;
+            margin-bottom: 10px;
         }
 
         /* Logo */
@@ -174,7 +175,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-bottom: 25px; /* Ökat från 15px för mer luft */
+            margin-bottom: 25px; 
             width: 100%;
         }
 
@@ -207,7 +208,6 @@
             box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3), 0 0 8px rgba(212, 175, 55, 0.6);
         }
 
-        /* Nya stiliserade radioknappar (Custom Radio Groups) */
         .radio-group {
             display: flex;
             width: 100%;
@@ -218,7 +218,7 @@
             cursor: pointer;
         }
         .radio-group input[type="radio"] {
-            display: none; /* Gömmer själva lilla runda knappen */
+            display: none; 
         }
         .radio-group span {
             display: block;
@@ -233,7 +233,6 @@
             box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
             transition: all 0.2s;
         }
-        /* När knappen är vald */
         .radio-group input[type="radio"]:checked + span {
             background: linear-gradient(to bottom, #f1c40f, #f39c12);
             color: #3e2723;
@@ -249,19 +248,13 @@
             gap: 15px;
             margin-top: 10px;
         }
-
-        .lobby-buttons .lobby-btn {
-            flex: 1; 
-            margin: 0;
-        }
+        .lobby-buttons .lobby-btn { flex: 1; margin: 0; }
         
         #createView, #joinView, #waitingView { display: none; }
         
         /* === GAME UI === */
         #gameView { display: none; }
-
         #gameWrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
-        
         .game-top-row { display: flex; align-items: stretch; gap: 20px; width: 100%; flex-wrap: nowrap; }
 
         /* === MY AREA (LEFT, 50%) === */
@@ -276,11 +269,13 @@
             color: #ecf0f1;
             transition: background-color 0.4s ease; 
         }
+        #myPlayerContainer .player-area.active-turn { background: #155724; outline: 3px solid #f1c40f; }
 
-        #myPlayerContainer .player-area.active-turn {
-            background: #155724; 
-            outline: 3px solid #f1c40f;
+        /* Hand / Buffer CSS for Desktop */
+        .my-hand-cards, .opponent-hand-cards {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
         }
+        .opponent-hand-count-mobile { display: none; } /* Endast synlig på mobil */
 
         /* === BOARD (RIGHT, 50%) === */
         #board {
@@ -293,27 +288,12 @@
             transform: translateZ(0); 
             z-index: 1;
         }
-
         #board::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #1a5e2a; 
-            background-image: url('wooden-table.jpg'); 
-            background-size: cover;
-            background-position: center;
-            z-index: -1;
-            border-radius: 4px;
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #1a5e2a; background-image: url('wooden-table.jpg'); background-size: cover; background-position: center;
+            z-index: -1; border-radius: 4px;
         }
-
         #board h2 { color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-
-        @media (max-width: 800px) {
-            .game-top-row { flex-wrap: wrap; }
-            #myPlayerContainer, #board { flex-basis: 100%; max-width: 100%; width: 100%; }
-            #statusContainer { flex-direction: column; }
-            #statusMessage::after { display: none; }
-        }
 
         .suit-row { display: flex; justify-content: center; align-items: center; margin: 5px 0; background: transparent; padding: 5px; border-radius: 8px; }
         
@@ -321,18 +301,16 @@
         .card { 
             display: inline-block; width: 60px; height: 90px;
             background: #fdfae7; 
-            color: black; border-radius: 5px; margin: 3px; font-weight: bold;
+            color: black; border-radius: 5px; margin: 0; font-weight: bold;
             box-shadow: 3px 3px 6px rgba(0,0,0,0.7); vertical-align: middle; position: relative; user-select: none;
             border: 1px solid #dcd7b9;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
             will-change: transform;
             font-family: sans-serif;
+            flex-shrink: 0;
         }
         
-        .card-corner { 
-            position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1; 
-            font-family: serif; 
-        }
+        .card-corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1; font-family: serif; }
         .top-left { top: 4px; left: 4px; }
         .bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
         .card-val { font-size: 20px; }
@@ -366,10 +344,7 @@
             0% { box-shadow: 0 0 30px 15px #f1c40f; transform: scale(1.15); background-color: #ffffff; border-color: #f1c40f; }
             100% { box-shadow: 2px 2px 5px rgba(0,0,0,0.5); transform: scale(1); background-color: #fdfae7; border-color: #dcd7b9; }
         }
-        .shimmer-effect {
-            animation: shimmerAnim 1.2s ease-out forwards;
-            z-index: 50;
-        }
+        .shimmer-effect { animation: shimmerAnim 1.2s ease-out forwards; z-index: 50; }
         
         /* DROP ZONES */
         .drop-zone { 
@@ -378,63 +353,33 @@
             transition: all 0.2s ease-in-out; position: relative; background: rgba(0,0,0,0.2); color: #ecf0f1;
             transform: translateZ(0);
         }
-        
         .drop-zone.drag-over { 
             background-color: rgba(46, 204, 113, 0.4); border-color: #2ecc71; 
             box-shadow: 0 0 20px 5px rgba(46, 204, 113, 0.8); transform: scale(1.05); z-index: 20;
         }
-
         .played-card { background: #fdfae7 !important; border: 1px solid #bdc3c7 !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
-        
         .completed-zone {
-            background-color: transparent !important; 
-            background-image: url('back-of-card.jpg') !important; 
-            background-size: cover !important;
-            background-position: center !important;
-            color: transparent !important; 
-            border: 1px solid #101010 !important; 
-            position: relative;
+            background-color: transparent !important; background-image: url('back-of-card.jpg') !important; 
+            background-size: cover !important; background-position: center !important; color: transparent !important; 
+            border: 1px solid #101010 !important; position: relative;
         }
         .completed-zone::after { display: none !important; }
 
         /* Jokers */
         .joker-badge {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background-color: #ffffff;
-            background-image: url('joker.png');
-            background-size: cover;
-            background-position: center;
-            border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);
-            width: 36px; height: 36px; z-index: 10; 
-            transition: all 0.2s ease; pointer-events: none;
-            border: 2px solid #333333; 
+            background-color: #ffffff; background-image: url('joker.png'); background-size: cover; background-position: center;
+            border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8); width: 36px; height: 36px; z-index: 10; 
+            transition: all 0.2s ease; pointer-events: none; border: 2px solid #333333; 
         }
         .joker-active-badge { box-shadow: 0 0 15px #2ecc71, 0 0 5px #2ecc71 inset; border: 2px solid #2ecc71; cursor: grab; pointer-events: auto; }
         .joker-active-badge:active { cursor: grabbing; }
-        
-        .joker-selected {
-            box-shadow: 0 0 15px #f1c40f, 0 0 5px #f1c40f inset !important;
-            border: 2px solid #f1c40f !important;
-            transform: translate(-50%, -50%) scale(1.15) !important;
-        }
-
+        .joker-selected { box-shadow: 0 0 15px #f1c40f, 0 0 5px #f1c40f inset !important; border: 2px solid #f1c40f !important; transform: translate(-50%, -50%) scale(1.15) !important; }
         .joker-inactive-badge { pointer-events: none; }
-        
-        /* Eliminerad Joker */
-        .eliminated-joker {
-            pointer-events: none;
-            filter: grayscale(80%);
-        }
+        .eliminated-joker { pointer-events: none; filter: grayscale(80%); }
         .eliminated-joker::after {
-            content: 'X';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #e74c3c;
-            font-size: 40px;
-            font-family: Arial, sans-serif;
-            font-weight: bold;
+            content: 'X'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #e74c3c; font-size: 40px; font-family: Arial, sans-serif; font-weight: bold;
             text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
         }
 
@@ -445,36 +390,116 @@
             display: flex; gap: 20px; width: 100%; flex-wrap: nowrap; 
             flex-direction: row-reverse; justify-content: center; box-sizing: border-box; 
         }
-        
         .opponent-area { 
-            background: #7d1c1c; 
-            border: 3px solid #d4af37; color: #ecf0f1;
-            padding: 10px; border-radius: 10px; 
-            flex: 1 1 calc(50% - 20px); 
-            max-width: calc(50% - 10px);
-            min-width: 220px;
-            opacity: 0.7; transition: background-color 0.4s ease, opacity 0.3s; margin: 0; 
-            box-sizing: border-box;
+            background: #7d1c1c; border: 3px solid #d4af37; color: #ecf0f1; padding: 10px; border-radius: 10px; 
+            flex: 1 1 calc(50% - 20px); max-width: calc(50% - 10px); min-width: 220px;
+            opacity: 0.7; transition: background-color 0.4s ease, opacity 0.3s; margin: 0; box-sizing: border-box;
         }
-        
-        .opponent-area.active-turn { 
-            opacity: 1; outline: 3px solid #f1c40f; background: #922b2b; 
-        }
-        
+        .opponent-area.active-turn { opacity: 1; outline: 3px solid #f1c40f; background: #922b2b; }
         .player-section { margin-bottom: 10px; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 5px;}
-        
         .buffer-section { min-height: 95px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
-        .hand-card { margin: 4px; } 
 
         .give-up-btn { padding: 6px 10px; font-size: 16px; margin-left: 10px; vertical-align: middle; }
 
-        /* Modals */
+        /* Custom Scrollbar for Hand */
+        ::-webkit-scrollbar { height: 8px; width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #f1c40f; }
+
+        /* =========================================
+           MOBILE RESPONSIVE LAYOUT 
+           ========================================= */
+        @media (max-width: 800px) {
+            /* General Header & Utilities */
+            #globalControls { top: 10px; right: 10px; gap: 5px; }
+            .global-btn { padding: 6px 10px !important; font-size: 14px !important; }
+            #turnCounter { font-size: 20px !important; top: 10px; left: 10px; }
+            
+            #statusContainer { margin-bottom: 10px; gap: 10px; }
+            .joker-avatar { width: 45px; height: 45px; }
+            #statusMessage { height: auto; min-height: 45px; padding: 5px 15px; font-size: 14px; max-width: 75%; }
+            #statusMessage::after { border-width: 8px 8px 8px 0; left: -8px; }
+
+            /* Game Wrapper Adjustment */
+            .game-top-row { display: block; }
+            #gameWrapper { display: block; }
+            #board { margin: 15px 0 300px 0; padding: 10px; flex-basis: auto; max-width: 100%; width: 100%; }
+
+            /* Scale down board cards */
+            .card { width: 46px !important; height: 69px !important; border-radius: 4px !important; }
+            .drop-zone { width: 46px !important; height: 69px !important; border-radius: 4px !important; margin: 0 5px !important; }
+            .card-val { font-size: 16px !important; }
+            .card-suit { font-size: 18px !important; }
+            .center-seven { font-size: 16px !important; margin: 0 5px !important;}
+            .joker-badge { width: 28px !important; height: 28px !important; }
+            .eliminated-joker::after { font-size: 28px !important; }
+            .suit-row { margin: 3px 0 !important; }
+
+            /* Opponents (Horizontal Scroll under Joker) */
+            #playersContainer { 
+                flex-direction: row !important; 
+                overflow-x: auto; 
+                justify-content: flex-start !important; 
+                padding-bottom: 10px; 
+                gap: 15px !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            .opponent-area { 
+                flex: 0 0 85vw !important; 
+                min-width: 85vw !important; 
+                max-width: 85vw !important;
+                margin: 0 !important;
+            }
+            .player-area h3, .opponent-area h3 { font-size: 22px !important; }
+            .opponent-hand-cards { display: none !important; } /* Gömmer motståndarens handkort */
+            .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; } /* Visar counter */
+
+            /* My Player Sticky Dashboard */
+            #myPlayerContainer { 
+                position: fixed; 
+                bottom: 0; left: 0; 
+                width: 100vw !important; 
+                max-width: 100vw !important; 
+                z-index: 500; 
+                padding: 0;
+                background: transparent;
+            }
+            #myPlayerContainer .player-area {
+                border-width: 4px 0 0 0 !important;
+                border-radius: 15px 15px 0 0 !important;
+                padding: 10px !important;
+                box-shadow: 0 -5px 15px rgba(0,0,0,0.8);
+                margin: 0;
+            }
+            /* Horisontell scroll för min hand */
+            .my-hand-cards {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                justify-content: flex-start !important;
+                padding-bottom: 10px;
+                gap: 8px !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Modals & Lobby */
+            .lobby-box { padding: 15px !important; width: 95% !important; margin: 10px auto !important; box-sizing: border-box; }
+            .lobby-input { font-size: 16px !important; padding: 10px !important; }
+            .form-group label.group-title { font-size: 20px !important; }
+            .radio-group span { padding: 8px !important; font-size: 14px !important; }
+            dialog { width: 95% !important; padding: 15px !important; box-sizing: border-box; }
+            dialog button { font-size: 16px !important; padding: 8px 12px !important; }
+        }
+
+        /* Modals Generic */
         dialog { border: none; border-radius: 8px; padding: 20px; text-align: center; font-family: inherit; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
         
         #instructionsDialog { width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; text-align: left; line-height: 1.6; color: #2c3e50; background: #ecf0f1; }
         .close-btn { display: block; margin: 20px auto 0; font-size: 20px !important;}
         
+        /* Win/Lose Modals Specific Styling */
         #winDialog { border: 4px solid #d4af37; background: #155724; color: #ecf0f1; }
         #winDialog h2 { color: #f1c40f; font-size: 2em; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
         #winDialog p { font-size: 1.2em; font-weight: bold; margin-bottom: 20px;}
@@ -596,13 +621,11 @@
         </div>
 
         <div id="gameWrapper">
-            <div class="game-top-row">
-                <div id="myPlayerContainer"></div>
-                <div id="board">
-                    <div id="boardContainer"></div>
-                </div>
-            </div>
             <div id="playersContainer"></div>
+            <div id="board">
+                <div id="boardContainer"></div>
+            </div>
+            <div id="myPlayerContainer"></div>
         </div>
     </div>
 
@@ -776,7 +799,6 @@
             "You might as well give up now. The House of Jokers always wins."
         ];
 
-        // Ändrad: Muted from start
         let isMuted = true;
         const bgMusic = document.getElementById('bgMusic');
         
@@ -794,7 +816,6 @@
             }
         }
 
-        // Kommer inte spela musik om isMuted är sant
         function startMusicOnInteraction() {
             if (bgMusic.paused && !isMuted) {
                 bgMusic.play().catch(e => console.log("Audio blocked: ", e));
@@ -830,7 +851,6 @@
             const playerName = document.getElementById('inputPlayerName').value;
             const roomName = document.getElementById('inputCreateRoomName').value;
             
-            // Hämtar valen från de nya radioknapparna
             const maxPlayers = document.querySelector('input[name="playerCount"]:checked').value;
             const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
 
@@ -1598,7 +1618,13 @@
 
                 const handSection = document.createElement('div');
                 handSection.className = 'player-section';
-                handSection.innerHTML = '<h4>Hand</h4>';
+                
+                // Ny logik: Ändra hur "Hand"-titeln visas beroende på spelare vs motståndare
+                let handTitle = isMe ? `<h4>Hand</h4>` : `<h4>Hand <span class="opponent-hand-count-mobile">🃏 x${p.hand.length}</span></h4>`;
+                handSection.innerHTML = handTitle;
+                
+                let handCardsDiv = document.createElement('div');
+                handCardsDiv.className = isMe ? 'my-hand-cards' : 'opponent-hand-cards';
                 
                 p.hand.forEach((card, cIndex) => {
                     const cardEl = createCardDOM(card, !isMe); 
@@ -1630,10 +1656,11 @@
                             }
                         };
                     }
-                    handSection.appendChild(cardEl);
+                    handCardsDiv.appendChild(cardEl);
                 });
 
-                if (p.hand.length === 0) handSection.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
+                if (p.hand.length === 0) handCardsDiv.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
+                handSection.appendChild(handCardsDiv);
                 pDiv.appendChild(handSection);
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
