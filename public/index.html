@@ -279,9 +279,10 @@
         }
 
         /* Hand / Buffer CSS for Desktop */
-        .my-hand-cards, .opponent-hand-cards {
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
-        }
+        .my-hand-cards, .opponent-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .buffer-cards-div { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; width: 100%; }
+        
+        .playable-title-mobile { display: none; } /* Döljs på desktop */
         .opponent-hand-count-mobile { display: none; } 
 
         /* === BOARD (RIGHT, 50%) === */
@@ -375,7 +376,7 @@
         }
         .completed-zone::after { display: none !important; }
 
-        /* Jokers */
+        /* Jokers - Centrerad position */
         .joker-badge {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background-color: #ffffff; background-image: url('joker.png'); background-size: cover; background-position: center;
@@ -407,7 +408,7 @@
         }
         .opponent-area.active-turn { opacity: 1; outline: 3px solid #f1c40f; background: #922b2b; }
         .player-section { margin-bottom: 10px; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 5px;}
-        .buffer-section { min-height: 95px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
+        .buffer-section { min-height: 95px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5px; }
 
         .give-up-btn { padding: 6px 10px; font-size: 16px; margin-left: 10px; vertical-align: middle; }
 
@@ -421,7 +422,6 @@
            MOBILE RESPONSIVE LAYOUT 
            ========================================= */
         @media (max-width: 800px) {
-            .game-logo { margin-top: 60px !important; }
             #globalControls { top: 10px; right: 10px; gap: 5px; }
             .global-btn { padding: 6px 10px !important; font-size: 14px !important; }
             #turnCounter { font-size: 20px !important; top: 10px; left: 10px; }
@@ -450,8 +450,11 @@
             }
             .opponent-area { flex: 0 0 85vw !important; min-width: 85vw !important; max-width: 85vw !important; margin: 0 !important; }
             .player-area h3, .opponent-area h3 { font-size: 18px !important; margin: 5px 0; }
+            
+            /* Dölj motståndarens Hand-rubrik och kort, visa ikon */
+            .opponent-hand-title { display: none !important; }
             .opponent-hand-cards { display: none !important; } 
-            .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; }
+            .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; margin-top: 5px; }
 
             /* My Player Sticky Dashboard */
             #myPlayerContainer { 
@@ -459,15 +462,31 @@
                 width: 100vw !important; max-width: 100vw !important; z-index: 500 !important; 
                 padding: 0 !important; margin: 0 !important; background: transparent !important; flex-basis: 100% !important;
             }
+            /* Ingen border-radius på mobilen */
             #myPlayerContainer .player-area {
-                border-width: 4px 0 0 0 !important; border-radius: 15px 15px 0 0 !important;
-                padding: 5px 10px !important; box-shadow: 0 -5px 15px rgba(0,0,0,0.8) !important; margin: 0 !important;
+                border-width: 4px 0 0 0 !important; border-radius: 0 !important;
+                padding: 5px 10px 10px 10px !important; box-shadow: 0 -5px 15px rgba(0,0,0,0.8) !important; margin: 0 !important;
+                border-left: none !important; border-right: none !important; border-bottom: none !important;
             }
 
             .my-cards-container {
                 display: flex !important; flex-direction: row !important; align-items: stretch !important;
                 gap: 10px !important; overflow-x: auto !important; padding-bottom: 5px !important; -webkit-overflow-scrolling: touch;
             }
+
+            /* Visa Playable cards rubrik på mobil */
+            .playable-title-mobile { 
+                display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important; 
+                text-align: left; color: #f1c40f; font-family: 'Pirata One', display, cursive; width: 100%;
+            }
+
+            .buffer-section {
+                min-height: auto !important; flex-wrap: nowrap !important; flex-shrink: 0 !important;
+                border-right: 2px solid rgba(212, 175, 55, 0.5) !important; padding-right: 15px !important;
+                align-items: flex-start !important;
+            }
+
+            .buffer-cards-div { flex-wrap: nowrap !important; gap: 5px !important; }
 
             .player-section { 
                 margin-bottom: 0 !important; 
@@ -484,16 +503,13 @@
                 color: #f1c40f;
             }
 
-            .buffer-section {
-                min-height: auto !important; flex-wrap: nowrap !important; flex-shrink: 0 !important;
-                border-right: none !important; align-items: center !important; flex-direction: row !important;
-            }
-
             .my-hand-cards { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; }
             .hand-card { margin: 0 !important; }
-            .setup-controls-mobile { margin-top: 5px !important; height: auto !important; }
             
-            .lobby-box { padding: 15px !important; width: 95% !important; margin: 10px auto !important; box-sizing: border-box; }
+            /* Mer space under knapparna under setup */
+            .setup-controls-mobile { margin-top: 5px !important; margin-bottom: 15px !important; height: auto !important; }
+            
+            .lobby-box { padding: 15px !important; width: 95% !important; margin: 80px auto 20px auto !important; box-sizing: border-box; }
             .lobby-input { font-size: 16px !important; padding: 10px !important; }
             .form-group label.group-title { font-size: 20px !important; }
             .radio-group span { padding: 8px !important; font-size: 14px !important; }
@@ -1581,10 +1597,19 @@
                 const cardsContainer = document.createElement('div');
                 cardsContainer.className = 'my-cards-container';
 
+                const bufferWrapper = document.createElement('div');
+                bufferWrapper.className = 'buffer-wrapper';
+                
+                let bufferTitle = isMe ? `<h4 class="playable-title-mobile">Playable cards</h4>` : '';
+                bufferWrapper.innerHTML = bufferTitle;
+
                 const bufferSection = document.createElement('div');
                 bufferSection.className = 'player-section buffer-section';
                 bufferSection.innerHTML = '';
                 
+                let bufferCardsDiv = document.createElement('div');
+                bufferCardsDiv.className = 'buffer-cards-div';
+
                 p.buffer.forEach((card, bIndex) => {
                     let showFacedown = card.isFacedown;
                     if (gamePhase === 'setup' && isMe) showFacedown = false;
@@ -1625,15 +1650,24 @@
                             }
                         }
                     }
-                    bufferSection.appendChild(cardEl);
+                    bufferCardsDiv.appendChild(cardEl);
                 });
                 
-                cardsContainer.appendChild(bufferSection);
+                bufferSection.appendChild(bufferCardsDiv);
+                bufferWrapper.appendChild(bufferSection);
+                cardsContainer.appendChild(bufferWrapper);
+
+                const handWrapper = document.createElement('div');
+                handWrapper.className = 'hand-wrapper';
 
                 const handSection = document.createElement('div');
                 handSection.className = 'player-section';
+                handSection.style.padding = '0';
+                handSection.style.background = 'transparent';
                 
-                let handTitle = isMe ? `<h4>Hand</h4>` : `<h4>Hand <span class="opponent-hand-count-mobile">🃏 x${p.hand.length}</span></h4>`;
+                let handTitle = isMe 
+                    ? `<h4>Hand</h4>` 
+                    : `<h4 class="opponent-hand-title">Hand</h4><div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:16px; height:24px; vertical-align:middle; border-radius:2px; border:1px solid #333; margin-right:4px; box-shadow: 1px 1px 2px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
                 handSection.innerHTML = handTitle;
                 
                 let handCardsDiv = document.createElement('div');
@@ -1674,7 +1708,8 @@
 
                 if (p.hand.length === 0) handCardsDiv.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
                 handSection.appendChild(handCardsDiv);
-                cardsContainer.appendChild(handSection);
+                handWrapper.appendChild(handSection);
+                cardsContainer.appendChild(handWrapper);
 
                 pDiv.appendChild(cardsContainer);
 
