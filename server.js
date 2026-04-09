@@ -35,16 +35,20 @@ io.on('connection', (socket) => {
     socket.emit('yourId', socket.id);
 
     socket.on('createGame', (data, callback) => {
-        const { playerName, roomName, maxPlayers } = data;
+        const { playerName, roomName, maxPlayers, difficulty } = data;
         
         if (rooms[roomName]) {
             return callback({ success: false, msg: "A room with that name already exists!" });
         }
 
+        let bufferSize = parseInt(difficulty) || 3;
+
         rooms[roomName] = {
             roomName: roomName,
-            host: socket.id, // Värden för rummet
+            host: socket.id, 
             maxPlayers: parseInt(maxPlayers),
+            bufferSize: bufferSize,
+            totalTurns: 0,
             players: [{ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false }],
             boardState: {
                 '♠': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
@@ -74,11 +78,9 @@ io.on('connection', (socket) => {
         socket.join(roomName);
         callback({ success: true });
 
-        // Auto-start är nu borta härifrån!
         io.to(roomName).emit('roomUpdate', room);
     });
 
-    // NY: Lyssna efter att hosten klickar på Start Round
     socket.on('startRound', (data) => {
         let room = rooms[data.roomName];
         if (room && room.host === socket.id && room.players.length === room.maxPlayers) {
@@ -303,8 +305,16 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
-        room.players.forEach(p => p.buffer.forEach(c => c.revealedThisTurn = false));
+        // Om ett kort blev avslöjat via gissning och INTE spelades, måste det vändas ner igen!
+        room.players.forEach(p => p.buffer.forEach(c => {
+            if (c.revealedThisTurn) {
+                c.isFacedown = true;
+                c.revealedThisTurn = false;
+            }
+        }));
         
+        room.totalTurns++; // Tickar upp turräknaren!
+
         let startIndex = room.currentTurn;
         let nextIndex = (startIndex + 1) % room.players.length;
         
@@ -340,13 +350,11 @@ io.on('connection', (socket) => {
                 
                 room.players.splice(playerIndex, 1);
 
-                // Reassign host if the host left while waiting
                 if (room.gamePhase === 'waiting' && room.players.length > 0) {
                     if (room.host === socketId) room.host = room.players[0].id;
                     io.to(roomName).emit('roomUpdate', room);
                 }
 
-                // RADERA RUMMET OM ALLA HAR LÄMNAT DET (Fix för rum-återskapande!)
                 if (room.players.length === 0) {
                     delete rooms[roomName]; 
                 }

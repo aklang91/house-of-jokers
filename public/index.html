@@ -104,6 +104,33 @@
             z-index: 1;
         }
 
+        /* === MEDIEVAL BUTTON STYLES === */
+        .global-btn, .lobby-btn, .give-up-btn, dialog button {
+            border: 2px solid #3e2723 !important; 
+            border-radius: 6px !important; 
+            cursor: pointer; 
+            font-weight: normal; 
+            font-family: 'Pirata One', cursive !important; 
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.3), 2px 2px 4px rgba(0,0,0,0.5) !important;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+        }
+        .global-btn { padding: 10px 15px; font-size: 18px; }
+        .lobby-btn { padding: 12px; font-size: 20px; }
+        dialog button { font-size: 18px; margin: 5px; padding: 8px 15px; }
+
+        .btn-green { background: linear-gradient(to bottom, #2ecc71, #27ae60) !important; color: white !important; text-shadow: 1px 1px 2px black !important;} 
+        .btn-green:hover:not(:disabled) { background: linear-gradient(to bottom, #27ae60, #219653) !important; }
+        
+        .btn-red { background: linear-gradient(to bottom, #e74c3c, #c0392b) !important; color: white !important; text-shadow: 1px 1px 2px black !important; } 
+        .btn-red:hover:not(:disabled) { background: linear-gradient(to bottom, #c0392b, #a93226) !important; }
+        
+        .btn-yellow { background: linear-gradient(to bottom, #f1c40f, #f39c12) !important; color: #3e2723 !important; text-shadow: 1px 1px 0px rgba(255,255,255,0.5) !important; } 
+        .btn-yellow:hover:not(:disabled) { background: linear-gradient(to bottom, #f39c12, #e67e22) !important; }
+
+        .btn-green:disabled { filter: grayscale(100%); opacity: 0.5; cursor: not-allowed; }
+
         /* === GLOBAL CONTROLS === */
         #globalControls {
             position: absolute;
@@ -114,49 +141,119 @@
             align-items: center;
             gap: 10px;
         }
-        
-        .global-btn { 
-            padding: 10px 15px; color: white; border: none; border-radius: 5px; 
-            cursor: pointer; font-weight: bold; font-family: inherit; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        #instructionsBtn { background: #2980b9; }
-        #leaveBtn { display: none; } /* Styrs dynamiskt, men vi sätter den till röd via klass */
+        #instructionsBtn { background: linear-gradient(to bottom, #3498db, #2980b9) !important; color: white !important; text-shadow: 1px 1px 2px black !important; }
+        #leaveBtn { display: none; } 
+        #turnCounter { display: none; position: absolute; top: 15px; left: 20px; color: #f1c40f; font-size: 32px; font-family: 'Pirata One', cursive; text-shadow: 2px 2px 4px #000; z-index: 1000; }
 
         #muteBtn {
-            background: transparent;
-            border: none;
-            font-size: 28px;
+            background: transparent !important;
+            border: none !important;
+            font-size: 28px !important;
             cursor: pointer;
-            padding: 0;
+            padding: 0 !important;
             margin: 0;
-            transition: opacity 0.2s;
-            box-shadow: none;
+            box-shadow: none !important;
         }
-        
-        #muteBtn:hover {
-            opacity: 0.7;
-        }
+        #muteBtn:hover { opacity: 0.7; }
 
         /* === LOBBY UI === */
         .lobby-box {
             margin-top: 20px; background: #155724; padding: 30px; border-radius: 10px;
-            max-width: 400px; margin: 20px auto;
+            max-width: 450px; margin: 20px auto;
             border: 3px solid #d4af37; 
             color: #ecf0f1; 
         }
         .lobby-box h3 { color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
-        .lobby-input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #7f8c8d; font-size: 16px; background: #ecf0f1; font-family: inherit;}
-        .lobby-btn { width: 45%; padding: 12px; margin: 5px 2%; border: 1px solid transparent; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; font-family: inherit; }
-        
-        /* Nya universella knappfärger */
-        .btn-green { background: #2ecc71; color: white; } 
-        .btn-green:hover { background: #27ae60; }
-        .btn-red { background: #e74c3c; color: white; } 
-        .btn-red:hover { background: #c0392b; }
-        .btn-yellow { background: #f39c12; color: white; } 
-        .btn-yellow:hover { background: #f1c40f; }
+        .lobby-content-wrapper {
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 25px; /* Ökat från 15px för mer luft */
+            width: 100%;
+        }
+
+        .form-group label.group-title {
+            font-family: 'Pirata One', cursive;
+            color: #f1c40f;
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+        }
+
+        .lobby-input { 
+            width: 100%; 
+            padding: 12px; 
+            box-sizing: border-box;
+            border-radius: 4px; 
+            border: 2px solid #3e2723; 
+            font-size: 18px; 
+            background: #ffffff; 
+            font-family: 'Fondamento', cursive, serif;
+            font-weight: bold;
+            color: #3e2723;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3);
+            outline: none;
+        }
+
+        .lobby-input:focus {
+            border-color: #d4af37;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3), 0 0 8px rgba(212, 175, 55, 0.6);
+        }
+
+        /* Nya stiliserade radioknappar (Custom Radio Groups) */
+        .radio-group {
+            display: flex;
+            width: 100%;
+            gap: 10px;
+        }
+        .radio-group label {
+            flex: 1;
+            cursor: pointer;
+        }
+        .radio-group input[type="radio"] {
+            display: none; /* Gömmer själva lilla runda knappen */
+        }
+        .radio-group span {
+            display: block;
+            padding: 10px;
+            border: 2px solid #3e2723;
+            border-radius: 4px;
+            background: #ffffff;
+            color: #3e2723;
+            font-family: 'Fondamento', cursive, serif;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+            transition: all 0.2s;
+        }
+        /* När knappen är vald */
+        .radio-group input[type="radio"]:checked + span {
+            background: linear-gradient(to bottom, #f1c40f, #f39c12);
+            color: #3e2723;
+            border-color: #d4af37;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
+        }
+
+        .lobby-buttons {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .lobby-buttons .lobby-btn {
+            flex: 1; 
+            margin: 0;
+        }
         
         #createView, #joinView, #waitingView { display: none; }
         
@@ -300,7 +397,7 @@
         }
         .completed-zone::after { display: none !important; }
 
-        /* Jokers - Centrerad position */
+        /* Jokers */
         .joker-badge {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background-color: #ffffff;
@@ -321,18 +418,24 @@
             transform: translate(-50%, -50%) scale(1.15) !important;
         }
 
-        .joker-inactive-badge { 
-            pointer-events: none; 
-        }
-
-        .inactive-zone::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.05); 
-            border-radius: 5px;
-            z-index: 5; 
+        .joker-inactive-badge { pointer-events: none; }
+        
+        /* Eliminerad Joker */
+        .eliminated-joker {
             pointer-events: none;
+            filter: grayscale(80%);
+        }
+        .eliminated-joker::after {
+            content: 'X';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #e74c3c;
+            font-size: 40px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
         }
 
         .center-seven { font-size: 20px; margin: 0 10px; position: relative; }
@@ -363,26 +466,15 @@
         .buffer-section { min-height: 95px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; }
         .hand-card { margin: 4px; } 
 
-        .give-up-btn { color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; vertical-align: middle; font-family: inherit;}
-
-        /* Mobile adjustments */
-        @media (max-width: 800px) {
-            .game-top-row { flex-wrap: wrap; }
-            #myPlayerContainer, #board { flex-basis: 100%; max-width: 100%; width: 100%; }
-            #playersContainer { flex-wrap: wrap; } 
-            .opponent-area { min-width: 220px; }
-            #statusContainer { flex-direction: column; }
-            #statusMessage::after { display: none; }
-        }
+        .give-up-btn { padding: 6px 10px; font-size: 16px; margin-left: 10px; vertical-align: middle; }
 
         /* Modals */
         dialog { border: none; border-radius: 8px; padding: 20px; text-align: center; font-family: inherit; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
-        select, button { padding: 8px; font-size: 1em; margin: 5px; cursor: pointer; font-family: inherit;}
         
         #instructionsDialog { width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; text-align: left; line-height: 1.6; color: #2c3e50; background: #ecf0f1; }
+        .close-btn { display: block; margin: 20px auto 0; font-size: 20px !important;}
         
-        /* Win/Lose Modals Specific Styling */
         #winDialog { border: 4px solid #d4af37; background: #155724; color: #ecf0f1; }
         #winDialog h2 { color: #f1c40f; font-size: 2em; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
         #winDialog p { font-size: 1.2em; font-weight: bold; margin-bottom: 20px;}
@@ -398,44 +490,84 @@
 </head>
 <body>
 
-    <audio id="bgMusic" loop>
+    <audio id="bgMusic" loop muted>
         <source src="soundtrack.mp3" type="audio/mpeg">
     </audio>
+
+    <div id="turnCounter">Turns: <span id="turnCountNumber">0</span></div>
 
     <div id="globalControls">
         <button id="leaveBtn" class="global-btn btn-red" onclick="document.getElementById('leaveConfirmDialog').showModal()">Leave round</button>
         <button id="instructionsBtn" class="global-btn" onclick="document.getElementById('instructionsDialog').showModal()">Game Instructions</button>
-        <button id="muteBtn" onclick="toggleMute()" title="Mute/Unmute Music">🔊</button>
+        <button id="muteBtn" onclick="toggleMute()" title="Mute/Unmute Music">🔇</button>
     </div>
 
     <div id="lobbyStep1" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <h3 style="font-size: 2.5em; margin-bottom: 15px;">Welcome!</h3>
-        <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Enter your player name" required><br><br>
-        <button class="lobby-btn btn-green" onclick="showCreateView()">New Game</button>
-        <button class="lobby-btn btn-yellow" onclick="showJoinView()">Join Game</button>
-        <p id="lobbyError1" style="color: #e74c3c;"></p>
+        <h3 style="font-size: 3.5em; margin-bottom: 15px;">Welcome!</h3>
+        
+        <div class="lobby-content-wrapper">
+            <div class="form-group">
+                <label class="group-title" for="inputPlayerName">Player Name</label>
+                <input type="text" id="inputPlayerName" class="lobby-input" placeholder="Enter your name" required>
+            </div>
+            <div class="lobby-buttons">
+                <button class="lobby-btn btn-green" onclick="showCreateView()">New Game</button>
+                <button class="lobby-btn btn-yellow" onclick="showJoinView()">Join Game</button>
+            </div>
+        </div>
+        <p id="lobbyError1" style="color: #e74c3c; margin-top: 15px; font-weight: bold;"></p>
     </div>
 
     <div id="createView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <input type="text" id="inputCreateRoomName" class="lobby-input" placeholder="Room Name" required><br>
-        <select id="inputPlayerCount" class="lobby-input" style="width: 95%;">
-            <option value="3">3 Players</option>
-            <option value="4">4 Players</option>
-            <option value="5">5 Players</option>
-        </select><br><br>
-        <button class="lobby-btn btn-green" onclick="createGame()">Create Game</button>
-        <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
-        <p id="lobbyErrorCreate" style="color: #e74c3c;"></p>
+        
+        <div class="lobby-content-wrapper">
+            <div class="form-group">
+                <label class="group-title" for="inputCreateRoomName">Room Name</label>
+                <input type="text" id="inputCreateRoomName" class="lobby-input" placeholder="e.g. The Tavern" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="group-title">Number of Players</label>
+                <div class="radio-group" id="inputPlayerCountGroup">
+                    <label><input type="radio" name="playerCount" value="3" checked> <span>3</span></label>
+                    <label><input type="radio" name="playerCount" value="4"> <span>4</span></label>
+                    <label><input type="radio" name="playerCount" value="5"> <span>5</span></label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="group-title">Difficulty</label>
+                <div class="radio-group" id="inputDifficultyGroup">
+                    <label><input type="radio" name="difficulty" value="3" checked> <span>Normal (3 Cards)</span></label>
+                    <label><input type="radio" name="difficulty" value="2"> <span>Hard (2 Cards)</span></label>
+                </div>
+            </div>
+
+            <div class="lobby-buttons">
+                <button class="lobby-btn btn-green" onclick="createGame()">Create Game</button>
+                <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
+            </div>
+        </div>
+        <p id="lobbyErrorCreate" style="color: #e74c3c; margin-top: 15px; font-weight: bold;"></p>
     </div>
 
     <div id="joinView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Room Name" required><br><br>
-        <button class="lobby-btn btn-green" onclick="joinGame()">Join</button>
-        <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
-        <p id="lobbyErrorJoin" style="color: #e74c3c;"></p>
+        
+        <div class="lobby-content-wrapper">
+            <div class="form-group">
+                <label class="group-title" for="inputJoinRoomName">Room Name</label>
+                <input type="text" id="inputJoinRoomName" class="lobby-input" placeholder="Enter room name" required>
+            </div>
+            
+            <div class="lobby-buttons">
+                <button class="lobby-btn btn-green" onclick="joinGame()">Join</button>
+                <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
+            </div>
+        </div>
+        <p id="lobbyErrorJoin" style="color: #e74c3c; margin-top: 15px; font-weight: bold;"></p>
     </div>
 
     <div id="waitingView" class="lobby-box">
@@ -447,8 +579,10 @@
         
         <h4 id="waitingText" style="color: #ffffff; margin-top: 15px;">Waiting for players...</h4>
         
-        <button id="startRoundBtn" class="lobby-btn btn-green" style="display: none; margin-top: 15px; width: 100%;" onclick="startRound()">Start round</button>
-        <button class="lobby-btn btn-red" style="margin-top: 15px; width: 100%;" onclick="leaveQueue()">Leave queue</button>
+        <div class="lobby-content-wrapper">
+            <button id="startRoundBtn" class="lobby-btn btn-green" style="display: none; margin-top: 15px; width: 100%;" onclick="startRound()">Start round</button>
+            <button class="lobby-btn btn-red" style="margin-top: 15px; width: 100%;" onclick="leaveQueue()">Leave queue</button>
+        </div>
     </div>
 
     <div id="gameView">
@@ -475,33 +609,33 @@
     <dialog id="leaveConfirmDialog" style="background:#ecf0f1;">
         <h3>Are you sure?</h3>
         <p>Do you really want to leave? The entire game will be lost.</p>
-        <button class="btn-red" onclick="confirmLeave()" style="border:none; padding:8px 15px; border-radius:5px;">Yes</button>
-        <button class="btn-yellow" onclick="document.getElementById('leaveConfirmDialog').close()" style="border:none; padding:8px 15px; border-radius:5px;">No</button>
+        <button class="btn-red" onclick="confirmLeave()">Yes</button>
+        <button class="btn-yellow" onclick="document.getElementById('leaveConfirmDialog').close()">No</button>
     </dialog>
 
     <dialog id="giveUpConfirmDialog" style="background:#ecf0f1;">
         <h3>Give Up?</h3>
         <p>Are you sure you want to give up? This ends the game for everyone.</p>
-        <button class="btn-red" onclick="confirmGiveUp()" style="border:none; padding:8px 15px; border-radius:5px;">Yes</button>
-        <button class="btn-yellow" onclick="document.getElementById('giveUpConfirmDialog').close()" style="border:none; padding:8px 15px; border-radius:5px;">No</button>
+        <button class="btn-red" onclick="confirmGiveUp()">Yes</button>
+        <button class="btn-yellow" onclick="document.getElementById('giveUpConfirmDialog').close()">No</button>
     </dialog>
 
     <dialog id="playerLeftDialog">
         <h3>The Joker Wins!</h3>
         <p id="playerLeftMsg">Someone left the game...</p>
-        <button class="btn-red" onclick="returnToLobby()" style="border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to home</button>
+        <button class="btn-red" onclick="returnToLobby()">Return to home</button>
     </dialog>
 
     <dialog id="winDialog">
         <h2>YOU WON!</h2>
         <p id="winMsg">Congratulations, you won the game together!</p>
-        <button class="btn-green" onclick="returnToLobby()" style="border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to home</button>
+        <button class="btn-green" onclick="returnToLobby()">Return to home</button>
     </dialog>
 
     <dialog id="loseDialog">
         <h2>GAME OVER</h2>
         <p id="loseMsg">You lost...</p>
-        <button class="btn-red" onclick="returnToLobby()" style="border: none; padding: 10px 20px; font-size: 18px; border-radius: 8px;">Return to home</button>
+        <button class="btn-red" onclick="returnToLobby()">Return to home</button>
     </dialog>
 
     <dialog id="guessDialog" style="background:#ecf0f1;">
@@ -521,8 +655,8 @@
                 <option value="13">K</option>
             </select>
         </div>
-        <button class="btn-green" onclick="submitGuess()" style="border:none; padding:8px 15px; border-radius:5px;">Guess</button>
-        <button class="btn-red" onclick="document.getElementById('guessDialog').close()" style="border:none; padding:8px 15px; border-radius:5px;">Cancel</button>
+        <button class="btn-green" onclick="submitGuess()">Guess</button>
+        <button class="btn-red" onclick="document.getElementById('guessDialog').close()">Cancel</button>
     </dialog>
 
     <dialog id="instructionsDialog">
@@ -534,8 +668,8 @@
         <ul>
             <li><strong>The Start:</strong> Take out all four sevens and place them in a row in the middle of the board.</li>
             <li><strong>Deal:</strong> Set the jokers aside. Deal all remaining cards evenly to the players. This is your hidden hand.</li>
-            <li><strong>The Choice:</strong> Each player selects three cards from their hand and places them face-up. These three slots are your playable cards.</li>
-            <li><strong>The Reveal:</strong> When all players have chosen, everyone reveals their three cards simultaneously.</li>
+            <li><strong>The Choice:</strong> Each player selects cards from their hand (3 in Normal mode, 2 in Hard mode) and places them face-up. These slots are your playable cards.</li>
+            <li><strong>The Reveal:</strong> When all players have chosen, everyone reveals their cards simultaneously.</li>
             <li><strong>Start:</strong> The player with the most cards in hand starts.</li>
         </ul>
 
@@ -548,7 +682,7 @@
         <h3>3. Objective</h3>
         <ul>
             <li><strong>Win:</strong> All 52 cards are placed in complete straight flushes (Ace to King).</li>
-            <li>You lose immediately if a player who already has three face-down cards fails a move or guesses wrong (see the Mercy Rule).</li>
+            <li>You lose immediately if a player who already has all their playable cards face-down fails a move or guesses wrong (see the Mercy Rule).</li>
         </ul>
 
         <h3>4. How to Play</h3>
@@ -572,7 +706,7 @@
         <p>If none of your cards fit, or if your paths are entirely blocked by jokers:</p>
         <ul>
             <li><strong>Penalty:</strong> You must click one of your face-up cards (which will glow red) to turn it face-down.</li>
-            <li><strong>The Mercy Rule:</strong> If ALL your remaining playable cards are face-down (whether you have 3, 2, or 1 card left), you are 'at mercy'. If it becomes your turn again and you try to guess a face-down card but guess wrong — or guess correctly but the card is unplayable — the game is immediately lost for the whole group.</li>
+            <li><strong>The Mercy Rule:</strong> If ALL your remaining playable cards are face-down, you are 'at mercy'. If it becomes your turn again and you try to guess a face-down card but guess wrong — or guess correctly but the card is unplayable — the game is immediately lost for the whole group.</li>
         </ul>
 
         <h3>6. Laws of the Jokers</h3>
@@ -581,6 +715,7 @@
             <li><strong>Start:</strong> The first three cards played after the sevens get a joker placed on them immediately.</li>
             <li><strong>Placement:</strong> Max one joker per endpoint.</li>
             <li><strong>Forbidden zones:</strong> A joker may never be placed on a seven (until removed permanently) or on a closed side.</li>
+            <li><strong>Elimination:</strong> A joker can be placed ON a seven to permanently eliminate it. The joker is then crossed out and can never be moved again!</li>
         </ul>
 
         <h3>7. Memory and Endgame</h3>
@@ -607,6 +742,8 @@
         let cardsPlayedCount = 0;
         let previousCardsPlayedCount = 0;
         let previousPlayerCount = 0;
+        let roomBufferSize = 3;
+        let totalTurns = 0;
         
         let interactionState = 'normal'; 
         let pendingGuessCard = null; 
@@ -639,7 +776,8 @@
             "You might as well give up now. The House of Jokers always wins."
         ];
 
-        let isMuted = false;
+        // Ändrad: Muted from start
+        let isMuted = true;
         const bgMusic = document.getElementById('bgMusic');
         
         let confettiCanvas, confettiCtx, confettiParticles = [];
@@ -656,6 +794,7 @@
             }
         }
 
+        // Kommer inte spela musik om isMuted är sant
         function startMusicOnInteraction() {
             if (bgMusic.paused && !isMuted) {
                 bgMusic.play().catch(e => console.log("Audio blocked: ", e));
@@ -690,11 +829,14 @@
             startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
             const roomName = document.getElementById('inputCreateRoomName').value;
-            const maxPlayers = document.getElementById('inputPlayerCount').value;
+            
+            // Hämtar valen från de nya radioknapparna
+            const maxPlayers = document.querySelector('input[name="playerCount"]:checked').value;
+            const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
 
             if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Enter a room name!";
             
-            socket.emit('createGame', { playerName, roomName, maxPlayers }, (res) => {
+            socket.emit('createGame', { playerName, roomName, maxPlayers, difficulty }, (res) => {
                 if(res.success) {
                     myRoomName = roomName;
                     document.getElementById('createView').style.display = 'none';
@@ -753,10 +895,12 @@
             cardsPlayedCount = 0;
             previousCardsPlayedCount = 0;
             previousPlayerCount = 0;
+            totalTurns = 0;
             setupInitialized = false;
             selectedJokerInfo = null;
             
             document.getElementById('waitingJoinMessages').innerText = "";
+            document.getElementById('turnCounter').style.display = 'none';
             
             isTaunting = false;
             if (tauntTimeout) clearTimeout(tauntTimeout);
@@ -774,14 +918,18 @@
         socket.on('roomUpdate', (room) => {
             document.getElementById('waitingRoomName').innerText = `Room name: ${room.roomName}`;
             
-            let playerListHTML = room.players.map(p => `<div>${p.name}</div>`).join('');
+            let playerListHTML = room.players.map(p => `<div>${p.name} joined the party.</div>`).join('');
             document.getElementById('waitingJoinMessages').innerHTML = playerListHTML;
 
             if (room.players.length === room.maxPlayers) {
-                document.getElementById('waitingText').style.display = 'none'; 
                 if (room.host === mySocketId) {
+                    document.getElementById('waitingText').style.display = 'none'; 
                     document.getElementById('startRoundBtn').style.display = 'inline-block';
                 } else {
+                    let hostPlayer = room.players.find(p => p.id === room.host);
+                    let hostName = hostPlayer ? hostPlayer.name : 'the host';
+                    document.getElementById('waitingText').style.display = 'block';
+                    document.getElementById('waitingText').innerText = `Waiting for ${hostName} to start the round`;
                     document.getElementById('startRoundBtn').style.display = 'none';
                 }
             } else {
@@ -831,7 +979,7 @@
             if (gamePhase === 'setup') {
                 let me = localPlayers.find(p => p.id === mySocketId);
                 if (me && !me.setupConfirmed) {
-                    let needed = 3 - setupSelection.buffer.length;
+                    let needed = roomBufferSize - setupSelection.buffer.length;
                     if (needed > 0) {
                         setStatus(`Pick ${needed} cards to place face-up. Choose wisely...`);
                     } else {
@@ -932,7 +1080,7 @@
         }
 
         function confirmSetup() {
-            if (setupSelection.buffer.length !== 3) return;
+            if (setupSelection.buffer.length !== roomBufferSize) return;
             let pIndex = localPlayers.findIndex(p => p.id === mySocketId);
             interactionState = 'waiting';
             socket.emit('confirmSetup', { roomName: myRoomName, pIndex: pIndex, buffer: setupSelection.buffer, hand: setupSelection.hand }, (res) => {
@@ -1136,11 +1284,7 @@
                 if (isPlayable) {
                     interactionState = 'normal';
                     let allJokersPlaced = cardsPlayedCount >= 3;
-                    if (allJokersPlaced) {
-                        setStatus("Lucky guess! You can play it now, or move a joker if allowed.");
-                    } else {
-                        setStatus("Lucky guess! Now put it on the board.");
-                    }
+                    showTemporaryTaunt("Damn! You guessed right!");
                 } else {
                     if (faceUpCountBefore === 0) {
                         interactionState = 'gameover';
@@ -1148,7 +1292,7 @@
                     } else {
                         cardToRevert = pendingGuessCard; 
                         interactionState = 'penalty_with_revert';
-                        setStatus(`Right card, wrong time! It can't be played. Pick a red card to flip as a penalty.`);
+                        showTemporaryTaunt(`Right card, wrong time! Take your penalty.`);
                     }
                 }
             } else {
@@ -1157,7 +1301,7 @@
                     socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed wrong on their last face-down card. You lost the game!` });
                 } else {
                     interactionState = 'penalty';
-                    setStatus(`Wrong! Your memory betrays you. Flip a red card as a penalty.`);
+                    showTemporaryTaunt(`Haha! You guessed wrong! Turn a card down.`);
                 }
             }
             pendingGuessCard = null;
@@ -1206,10 +1350,6 @@
                     html = generateCardHTML(val, suit);
                 }
             }
-            
-            if (hasJoker) {
-                html += `<div class="joker-badge"></div>`; 
-            }
             return html;
         }
 
@@ -1251,8 +1391,6 @@
                     minZone.classList.add('played-card');
                 }
 
-                if (state.jokerMin) minZone.classList.add('inactive-zone');
-
                 if (shimmerSide === 'min' && shimmerSuit === suit) {
                     minZone.classList.add('shimmer-effect');
                 }
@@ -1265,29 +1403,29 @@
                 }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
                 
-                let minJoker = minZone.querySelector('.joker-badge');
-                if(minJoker) {
+                if(state.jokerMin) {
+                    let jBadge = document.createElement('div');
+                    jBadge.className = 'joker-badge';
                     if(jokersActive) {
-                        minJoker.classList.add('joker-active-badge');
-                        minJoker.draggable = true;
-                        minJoker.ondragstart = (ev) => dragJoker(ev, suit, 'min');
-                        minJoker.ondragend = (ev) => { ev.target.style.opacity = '1'; };
+                        jBadge.classList.add('joker-active-badge');
+                        jBadge.draggable = true;
+                        jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'min');
+                        jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                         
-                        minJoker.onclick = (ev) => clickJoker(ev, suit, 'min'); 
+                        jBadge.onclick = (ev) => clickJoker(ev, suit, 'min'); 
                         if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'min') {
-                            minJoker.classList.add('joker-selected');
+                            jBadge.classList.add('joker-selected');
                         }
                     } else {
-                        minJoker.classList.add('joker-inactive-badge');
+                        jBadge.classList.add('joker-inactive-badge');
                     }
+                    minZone.appendChild(jBadge);
                 }
 
                 // --- CENTER ---
                 const sevenCard = createCardDOM({ value: 7, suit: suit });
                 sevenCard.classList.add('center-seven');
                 
-                if (state.jokerCenter) sevenCard.classList.add('inactive-zone');
-
                 let suitComplete = (state.min === 1 && state.max === 13);
                 if (suitComplete) {
                     sevenCard.ondrop = (ev) => drop(ev, suit, 'center');
@@ -1295,9 +1433,10 @@
                     sevenCard.ondragleave = dragLeave;
                     sevenCard.onclick = (ev) => handleZoneClick(ev, suit, 'center');
                 }
+                
                 if (state.jokerCenter) {
                     let jBadge = document.createElement('div');
-                    jBadge.className = 'joker-badge joker-inactive-badge';
+                    jBadge.className = 'joker-badge eliminated-joker';
                     sevenCard.appendChild(jBadge);
                 }
 
@@ -1312,8 +1451,6 @@
                     maxZone.classList.add('played-card');
                 }
 
-                if (state.jokerMax) maxZone.classList.add('inactive-zone');
-
                 if (shimmerSide === 'max' && shimmerSuit === suit) {
                     maxZone.classList.add('shimmer-effect');
                 }
@@ -1326,21 +1463,23 @@
                 }
                 maxZone.innerHTML = createBoardZoneContent(state, 'max', suit);
                 
-                let maxJoker = maxZone.querySelector('.joker-badge');
-                if(maxJoker) {
+                if(state.jokerMax) {
+                    let jBadge = document.createElement('div');
+                    jBadge.className = 'joker-badge';
                     if(jokersActive) {
-                        maxJoker.classList.add('joker-active-badge');
-                        maxJoker.draggable = true;
-                        maxJoker.ondragstart = (ev) => dragJoker(ev, suit, 'max');
-                        maxJoker.ondragend = (ev) => { ev.target.style.opacity = '1'; };
+                        jBadge.classList.add('joker-active-badge');
+                        jBadge.draggable = true;
+                        jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'max');
+                        jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
 
-                        maxJoker.onclick = (ev) => clickJoker(ev, suit, 'max'); 
+                        jBadge.onclick = (ev) => clickJoker(ev, suit, 'max'); 
                         if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'max') {
-                            maxJoker.classList.add('joker-selected');
+                            jBadge.classList.add('joker-selected');
                         }
                     } else {
-                        maxJoker.classList.add('joker-inactive-badge');
+                        jBadge.classList.add('joker-inactive-badge');
                     }
+                    maxZone.appendChild(jBadge);
                 }
 
                 row.appendChild(minZone);
@@ -1467,7 +1606,7 @@
                     
                     let canClickHand = false;
                     if (isMe) {
-                        if (gamePhase === 'setup' && !p.setupConfirmed && setupSelection.buffer.length < 3) canClickHand = true;
+                        if (gamePhase === 'setup' && !p.setupConfirmed && setupSelection.buffer.length < roomBufferSize) canClickHand = true;
                         if (gamePhase === 'playing' && pIndex === activeTurn && p.mustReplace && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) canClickHand = true; 
                     }
                     
@@ -1498,9 +1637,8 @@
                 pDiv.appendChild(handSection);
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
-                    let confirmDisabled = setupSelection.buffer.length !== 3 ? 'disabled' : '';
-                    let confirmColorClass = setupSelection.buffer.length === 3 ? 'btn-green' : '';
-                    let confirmStyle = setupSelection.buffer.length !== 3 ? 'background: #7f8c8d;' : '';
+                    let confirmDisabled = setupSelection.buffer.length !== roomBufferSize ? 'disabled' : '';
+                    let confirmColorClass = setupSelection.buffer.length === roomBufferSize ? 'btn-green' : '';
                     
                     let setupControls = document.createElement('div');
                     setupControls.style.display = 'flex';
@@ -1513,7 +1651,7 @@
                     
                     setupControls.innerHTML = `
                         <button style="background:transparent; color:#ecf0f1; border:none; box-shadow:none; font-size:24px; cursor:pointer; padding: 0; line-height: 1;" onclick="undoSetup()" title="Undo selection">↺</button>
-                        <button class="${confirmColorClass}" style="${confirmStyle} border: none; font-size: 13px; font-weight: bold; margin: 0; padding: 6px 12px; border-radius: 5px; transition: background 0.3s; font-family: inherit; cursor: pointer;" onclick="confirmSetup()" ${confirmDisabled}>Confirm cards</button>
+                        <button class="${confirmColorClass}" style="font-size: 13px; font-weight: bold; margin: 0; padding: 6px 12px; border-radius: 5px; transition: background 0.3s; font-family: inherit; cursor: pointer;" onclick="confirmSetup()" ${confirmDisabled}>Confirm cards</button>
                     `;
                     pDiv.appendChild(setupControls);
                 }
@@ -1582,6 +1720,9 @@
             document.getElementById('waitingView').style.display = 'none';
             document.getElementById('gameView').style.display = 'block';
             document.getElementById('leaveBtn').style.display = 'block';
+            
+            document.getElementById('turnCounter').style.display = 'block';
+            document.getElementById('turnCountNumber').innerText = data.totalTurns || 0;
 
             currentBoardState = data.boardState;
             localPlayers = data.players;
@@ -1589,6 +1730,9 @@
             gamePhase = data.gamePhase;
             cardsPlayedCount = data.cardsPlayedCount;
             previousCardsPlayedCount = cardsPlayedCount;
+            roomBufferSize = data.bufferSize || 3;
+            totalTurns = data.totalTurns || 0;
+            
             interactionState = gamePhase === 'gameover' ? 'gameover' : 'normal';
             cardToRevert = null;
             setupInitialized = false;
@@ -1651,6 +1795,9 @@
             gamePhase = data.gamePhase;
             cardsPlayedCount = data.cardsPlayedCount;
             previousCardsPlayedCount = cardsPlayedCount;
+            totalTurns = data.totalTurns || 0;
+            
+            document.getElementById('turnCountNumber').innerText = totalTurns;
             
             if (turnChanged || interactionState === 'waiting') {
                 interactionState = 'normal';
