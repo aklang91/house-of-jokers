@@ -489,43 +489,36 @@
             }
 
             .hand-wrapper {
-                flex: 1 !important; min-width: 0 !important;
+                flex: 1 !important; min-width: 0 !important; 
             }
 
-            /* FIX FÖR VERTICAL ALIGNMENT AV RUBRIKER */
+            /* FIX: Låt flexbox matcha höjden och tvinga innehållet upp mot taket */
             .buffer-section, .hand-section {
                 background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
                 padding: 8px !important; display: flex !important; flex-direction: column !important;
                 box-sizing: border-box !important; margin-bottom: 0 !important; flex: 1 !important;
                 justify-content: flex-start !important; 
             }
-            .buffer-section { align-items: flex-start !important; }
-            .hand-section { align-items: flex-start !important; }
 
             /* Tvinga exakt höjd och no-wrap på rubrikerna så de alltid ligger i linje */
             .my-hand-title, .opponent-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
                 display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important;
                 text-align: left !important; color: #f1c40f !important; font-family: 'Pirata One', display, cursive !important;
-                width: 100% !important;
-                line-height: 20px !important;
-                height: 20px !important; 
-                white-space: nowrap !important;
+                width: 100% !important; line-height: 20px !important; height: 20px !important; white-space: nowrap !important;
             }
             
             .opponent-hand-title { display: block !important; }
 
-            .buffer-cards-div, .my-hand-cards {
-                min-height: 69px; 
-            }
-
             .buffer-cards-div { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; justify-content: flex-start !important; }
             
-            /* Vi låter scrollbaren finnas kvar och låter flexbox hantera att överbliven plats hamnar i botten */
+            /* Skrollbaren läggs tillbaka! Tillåter scroll utan att spräcka layouten */
             .my-hand-cards { 
                 display: flex !important; flex-wrap: nowrap !important; justify-content: flex-start !important; gap: 5px !important; 
-                overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 10px !important; padding-left: 2px !important;
+                width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; 
+                padding-bottom: 10px !important; padding-left: 2px !important; box-sizing: border-box !important;
             }
-            .my-hand-cards::after { content: ''; flex: 0 0 10px; } 
+            /* Garanterar att sista kortet kan skrollas in helt */
+            .my-hand-cards::after { content: ''; flex: 0 0 5px; } 
             
             .my-cards-container .card { margin: 0 !important; }
             
