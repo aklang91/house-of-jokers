@@ -430,7 +430,6 @@
            MOBILE RESPONSIVE LAYOUT 
            ========================================= */
         @media (max-width: 800px) {
-            /* Tydligare marginaler ovanför logotypen */
             .game-logo { margin-top: 60px !important; }
             .lobby-box { padding: 15px !important; width: 95% !important; margin: 70px auto 20px auto !important; box-sizing: border-box; }
             
@@ -463,6 +462,10 @@
             .opponent-area { flex: 0 0 85vw !important; min-width: 85vw !important; max-width: 85vw !important; margin: 0 !important; }
             .player-area h3, .opponent-area h3 { font-size: 18px !important; margin: 5px 0; }
             
+            .opponent-hand-title-text { display: none !important; }
+            .opponent-hand-cards { display: none !important; } 
+            .opponent-hand-count-mobile { display: flex !important; align-items: center; justify-content: center; font-size: 1.1em; color: #f1c40f; flex: 1; }
+
             /* My Player Sticky Dashboard */
             #myPlayerContainer { 
                 position: fixed !important; bottom: 0 !important; left: 0 !important; 
@@ -480,13 +483,7 @@
                 gap: 10px !important; width: 100% !important; padding-bottom: 5px !important;
             }
 
-            .buffer-wrapper, .hand-wrapper {
-                display: flex !important;
-                flex-direction: column !important;
-            }
-
             .buffer-wrapper {
-                /* Dynamisk bredd sätts i JS, men detta sätter reglerna */
                 flex: 0 0 auto !important;
                 min-width: 110px !important; 
             }
@@ -495,40 +492,40 @@
                 flex: 1 !important; min-width: 0 !important;
             }
 
+            /* FIX FÖR VERTICAL ALIGNMENT AV RUBRIKER */
             .buffer-section, .hand-section {
                 background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
                 padding: 8px !important; display: flex !important; flex-direction: column !important;
                 box-sizing: border-box !important; margin-bottom: 0 !important; flex: 1 !important;
+                justify-content: flex-start !important; 
             }
             .buffer-section { align-items: flex-start !important; }
+            .hand-section { align-items: flex-start !important; }
 
-            .my-hand-title, .opponent-hand-title, .playable-title-mobile { 
-                display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important; 
-                text-align: left; color: #f1c40f; font-family: 'Pirata One', display, cursive; width: 100%;
-                line-height: 20px;
+            /* Tvinga exakt höjd och no-wrap på rubrikerna så de alltid ligger i linje */
+            .my-hand-title, .opponent-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
+                display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important;
+                text-align: left !important; color: #f1c40f !important; font-family: 'Pirata One', display, cursive !important;
+                width: 100% !important;
+                line-height: 20px !important;
+                height: 20px !important; 
+                white-space: nowrap !important;
             }
             
             .opponent-hand-title { display: block !important; }
 
-            .opponent-hand-count-mobile {
-                display: flex !important; align-items: center; justify-content: center; flex: 1;
-                font-size: 1.4em; color: #f1c40f; 
-            }
-            .opponent-hand-cards { display: none !important; }
-
-            /* Säkerställer att boxarna alltid är lika höga även när de är tomma */
             .buffer-cards-div, .my-hand-cards {
                 min-height: 69px; 
             }
 
             .buffer-cards-div { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; justify-content: flex-start !important; }
             
-            /* Tvinga handkorten att börja ritas från VÄNSTER så de inte kapas ur bild när de överfyller containern */
+            /* Vi låter scrollbaren finnas kvar och låter flexbox hantera att överbliven plats hamnar i botten */
             .my-hand-cards { 
                 display: flex !important; flex-wrap: nowrap !important; justify-content: flex-start !important; gap: 5px !important; 
                 overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 10px !important; padding-left: 2px !important;
             }
-            .my-hand-cards::after { content: ''; flex: 0 0 10px; } /* Fixar avklippt scroll längst till höger */
+            .my-hand-cards::after { content: ''; flex: 0 0 10px; } 
             
             .my-cards-container .card { margin: 0 !important; }
             
@@ -1690,13 +1687,10 @@
                 const handSection = document.createElement('div');
                 handSection.className = 'player-section hand-section';
                 
-                let handTitleText = isMe ? 'Hand' : 'Hand';
-                let handTitleClass = isMe ? 'my-hand-title' : 'opponent-hand-title';
-                let handTitleHtml = `<h4 class="${handTitleClass}">${handTitleText}</h4>`;
-                
-                let opponentCountHtml = !isMe ? `<div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:24px; height:36px; vertical-align:middle; border-radius:3px; border:1px solid #333; margin-right:5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);"> x${p.hand.length}</div>` : '';
-
-                handSection.innerHTML = handTitleHtml + opponentCountHtml;
+                let handTitle = isMe 
+                    ? `<h4 class="my-hand-title">Hand</h4>` 
+                    : `<h4 class="opponent-hand-title">Hand</h4><div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:24px; height:36px; vertical-align:middle; border-radius:3px; border:1px solid #333; margin-right:5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
+                handSection.innerHTML = handTitle;
                 
                 let handCardsDiv = document.createElement('div');
                 handCardsDiv.className = isMe ? 'my-hand-cards' : 'opponent-hand-cards';
