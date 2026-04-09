@@ -91,6 +91,12 @@
             overflow-y: auto; 
             box-sizing: border-box;
             line-height: 1.3;
+            /* Döljer den inbyggda scrollbaren i pratbubblan */
+            -ms-overflow-style: none;  
+            scrollbar-width: none;  
+        }
+        .status-message-content::-webkit-scrollbar {
+            display: none;
         }
 
         #statusMessage::after {
@@ -282,7 +288,7 @@
         .my-hand-cards, .opponent-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
         .buffer-cards-div { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; width: 100%; }
         
-        .playable-title-mobile { display: none; } /* Döljs på desktop */
+        .playable-title-mobile { display: none; } 
         .opponent-hand-count-mobile { display: none; } 
 
         /* === BOARD (RIGHT, 50%) === */
@@ -376,7 +382,7 @@
         }
         .completed-zone::after { display: none !important; }
 
-        /* Jokers - Centrerad position */
+        /* Jokers */
         .joker-badge {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background-color: #ffffff; background-image: url('joker.png'); background-size: cover; background-position: center;
@@ -422,6 +428,10 @@
            MOBILE RESPONSIVE LAYOUT 
            ========================================= */
         @media (max-width: 800px) {
+            /* Tydligare marginaler ovanför logotypen */
+            #gameView .game-logo { margin-top: 60px !important; }
+            .lobby-box { padding: 15px !important; width: 95% !important; margin: 70px auto 20px auto !important; box-sizing: border-box; }
+            
             #globalControls { top: 10px; right: 10px; gap: 5px; }
             .global-btn { padding: 6px 10px !important; font-size: 14px !important; }
             #turnCounter { font-size: 20px !important; top: 10px; left: 10px; }
@@ -451,7 +461,6 @@
             .opponent-area { flex: 0 0 85vw !important; min-width: 85vw !important; max-width: 85vw !important; margin: 0 !important; }
             .player-area h3, .opponent-area h3 { font-size: 18px !important; margin: 5px 0; }
             
-            /* Dölj motståndarens Hand-rubrik och kort, visa ikon */
             .opponent-hand-title { display: none !important; }
             .opponent-hand-cards { display: none !important; } 
             .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; margin-top: 5px; }
@@ -462,7 +471,6 @@
                 width: 100vw !important; max-width: 100vw !important; z-index: 500 !important; 
                 padding: 0 !important; margin: 0 !important; background: transparent !important; flex-basis: 100% !important;
             }
-            /* Ingen border-radius på mobilen */
             #myPlayerContainer .player-area {
                 border-width: 4px 0 0 0 !important; border-radius: 0 !important;
                 padding: 5px 10px 10px 10px !important; box-shadow: 0 -5px 15px rgba(0,0,0,0.8) !important; margin: 0 !important;
@@ -471,28 +479,37 @@
 
             .my-cards-container {
                 display: flex !important; flex-direction: row !important; align-items: stretch !important;
-                gap: 10px !important; overflow-x: auto !important; padding-bottom: 5px !important; -webkit-overflow-scrolling: touch;
+                gap: 10px !important; width: 100% !important; padding-bottom: 5px !important;
             }
 
-            /* Visa Playable cards rubrik på mobil */
-            .playable-title-mobile { 
-                display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important; 
-                text-align: left; color: #f1c40f; font-family: 'Pirata One', display, cursive; width: 100%;
+            .buffer-wrapper {
+                /* Fixerad bredd så det motsvarar exakt 3 kort + gap oavsett hur många man har kvar */
+                flex: 0 0 165px !important;
+                min-width: 165px !important; 
+            }
+
+            .hand-wrapper {
+                flex: 1 !important;
+                min-width: 0 !important; /* Måste finnas för att tillåta inre scrolling */
             }
 
             .buffer-section {
-                min-height: auto !important; flex-wrap: nowrap !important; flex-shrink: 0 !important;
-                border-right: 2px solid rgba(212, 175, 55, 0.5) !important; padding-right: 15px !important;
-                align-items: flex-start !important;
+                width: 100% !important; background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
+                padding: 8px !important; display: flex !important; flex-direction: column !important; align-items: flex-start !important;
+                box-sizing: border-box !important; margin-bottom: 0 !important;
             }
-
-            .buffer-cards-div { flex-wrap: nowrap !important; gap: 5px !important; }
 
             .player-section { 
                 margin-bottom: 0 !important; 
                 padding: 8px !important; 
                 background: rgba(0, 0, 0, 0.4) !important; 
                 border-radius: 8px !important;
+                box-sizing: border-box !important;
+            }
+
+            .playable-title-mobile { 
+                display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important; 
+                text-align: left; color: #f1c40f; font-family: 'Pirata One', display, cursive; width: 100%;
             }
 
             #myPlayerContainer h4 { 
@@ -503,13 +520,15 @@
                 color: #f1c40f;
             }
 
-            .my-hand-cards { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; }
+            .buffer-cards-div { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; justify-content: flex-start !important; }
+            .my-hand-cards { 
+                display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; 
+                overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 5px !important;
+            }
             .hand-card { margin: 0 !important; }
             
-            /* Mer space under knapparna under setup */
             .setup-controls-mobile { margin-top: 5px !important; margin-bottom: 15px !important; height: auto !important; }
             
-            .lobby-box { padding: 15px !important; width: 95% !important; margin: 80px auto 20px auto !important; box-sizing: border-box; }
             .lobby-input { font-size: 16px !important; padding: 10px !important; }
             .form-group label.group-title { font-size: 20px !important; }
             .radio-group span { padding: 8px !important; font-size: 14px !important; }
@@ -1601,11 +1620,10 @@
                 bufferWrapper.className = 'buffer-wrapper';
                 
                 let bufferTitle = isMe ? `<h4 class="playable-title-mobile">Playable cards</h4>` : '';
-                bufferWrapper.innerHTML = bufferTitle;
-
+                
                 const bufferSection = document.createElement('div');
                 bufferSection.className = 'player-section buffer-section';
-                bufferSection.innerHTML = '';
+                bufferSection.innerHTML = bufferTitle;
                 
                 let bufferCardsDiv = document.createElement('div');
                 bufferCardsDiv.className = 'buffer-cards-div';
@@ -1662,8 +1680,6 @@
 
                 const handSection = document.createElement('div');
                 handSection.className = 'player-section';
-                handSection.style.padding = '0';
-                handSection.style.background = 'transparent';
                 
                 let handTitle = isMe 
                     ? `<h4>Hand</h4>` 

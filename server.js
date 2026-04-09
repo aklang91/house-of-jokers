@@ -4,7 +4,14 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// AKTIVERA CONNECTION STATE RECOVERY
+const io = new Server(server, {
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000, // Tillåter att mobilen är låst i upp till 2 minuter
+        skipMiddlewares: true,
+    }
+});
 
 app.use(express.static('public'));
 
@@ -28,9 +35,20 @@ function shuffle(array) {
 }
 
 const rooms = {};
+// Objekt för att hålla reda på spelare som temporärt kopplat från (p.g.a låsskärm etc)
+const disconnectedPlayers = {};
 
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
+    
+    // Om spelaren återskapat anslutningen (Connection State Recovery lyckades)
+    if (socket.recovered) {
+        console.log('Player connection recovered:', socket.id);
+        if (disconnectedPlayers[socket.id]) {
+            clearTimeout(disconnectedPlayers[socket.id]);
+            delete disconnectedPlayers[socket.id];
+        }
+    }
     
     socket.emit('yourId', socket.id);
 
@@ -208,6 +226,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('leaveGame', (data) => {
+        // En explicit "leave"-signal avbryter allt omedelbart, ingen timeout
+        if (disconnectedPlayers[socket.id]) {
+            clearTimeout(disconnectedPlayers[socket.id]);
+            delete disconnectedPlayers[socket.id];
+        }
         handlePlayerLeave(socket.id, data.roomName);
     });
 
@@ -305,7 +328,6 @@ io.on('connection', (socket) => {
         let room = rooms[roomName];
         if(!room) return;
 
-        // Om ett kort blev avslöjat via gissning och INTE spelades, måste det vändas ner igen!
         room.players.forEach(p => p.buffer.forEach(c => {
             if (c.revealedThisTurn) {
                 c.isFacedown = true;
@@ -313,7 +335,7 @@ io.on('connection', (socket) => {
             }
         }));
         
-        room.totalTurns++; // Tickar upp turräknaren!
+        room.totalTurns++; 
 
         let startIndex = room.currentTurn;
         let nextIndex = (startIndex + 1) % room.players.length;
@@ -363,7 +385,12 @@ io.on('connection', (socket) => {
     }
 
     socket.on('disconnect', () => {
-        handlePlayerLeave(socket.id);
+        // När en användare förlorar connection "onormalt" (skärmen låses), 
+        // sätter vi en timeout på 30 sekunder. Kommer de inte tillbaka raderas de.
+        disconnectedPlayers[socket.id] = setTimeout(() => {
+            handlePlayerLeave(socket.id);
+            delete disconnectedPlayers[socket.id];
+        }, 30000); 
     });
 });
 
