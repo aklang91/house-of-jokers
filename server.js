@@ -5,12 +5,14 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// AKTIVERA CONNECTION STATE RECOVERY
+// AKTIVERA CONNECTION STATE RECOVERY & MER FÖRLÅTANDE PING TIMEOUTS
 const io = new Server(server, {
     connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // Tillåter att mobilen är låst i upp till 2 minuter
+        maxDisconnectionDuration: 2 * 60 * 1000, 
         skipMiddlewares: true,
-    }
+    },
+    pingTimeout: 60000, 
+    pingInterval: 25000 
 });
 
 app.use(express.static('public'));
@@ -35,13 +37,11 @@ function shuffle(array) {
 }
 
 const rooms = {};
-// Objekt för att hålla reda på spelare som temporärt kopplat från (p.g.a låsskärm etc)
 const disconnectedPlayers = {};
 
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
     
-    // Om spelaren återskapat anslutningen (Connection State Recovery lyckades)
     if (socket.recovered) {
         console.log('Player connection recovered:', socket.id);
         if (disconnectedPlayers[socket.id]) {
@@ -226,7 +226,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('leaveGame', (data) => {
-        // En explicit "leave"-signal avbryter allt omedelbart, ingen timeout
         if (disconnectedPlayers[socket.id]) {
             clearTimeout(disconnectedPlayers[socket.id]);
             delete disconnectedPlayers[socket.id];
@@ -276,7 +275,8 @@ io.on('connection', (socket) => {
             if (isWin) {
                 room.gamePhase = 'gameover';
                 io.to(roomName).emit('boardUpdated', room);
-                io.to(roomName).emit('gameWon', { msg: "Congratulations, you won the game together!" });
+                // SKICKAR MED TOTAL TURNS!
+                io.to(roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
                 return callback({ success: true });
             }
 
@@ -384,13 +384,13 @@ io.on('connection', (socket) => {
         }
     }
 
-    socket.on('disconnect', () => {
-        // När en användare förlorar connection "onormalt" (skärmen låses), 
-        // sätter vi en timeout på 30 sekunder. Kommer de inte tillbaka raderas de.
+    socket.on('disconnect', (reason) => {
+        console.log('Player disconnected:', socket.id, 'Reason:', reason);
+        // Ökad till 180 sekunder (3 minuter) för bättre felmarginal på mobiler
         disconnectedPlayers[socket.id] = setTimeout(() => {
             handlePlayerLeave(socket.id);
             delete disconnectedPlayers[socket.id];
-        }, 30000); 
+        }, 180000); 
     });
 });
 

@@ -81,10 +81,13 @@
             box-sizing: border-box;
             text-align: left; 
             box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            display: flex; 
+            align-items: center; 
         }
         
         .status-message-content {
             height: 100%;
+            width: 100%;
             padding: 0 20px;
             display: flex;
             align-items: center;
@@ -428,7 +431,7 @@
            ========================================= */
         @media (max-width: 800px) {
             /* Tydligare marginaler ovanför logotypen */
-            #gameView .game-logo { margin-top: 60px !important; }
+            .game-logo { margin-top: 60px !important; }
             .lobby-box { padding: 15px !important; width: 95% !important; margin: 70px auto 20px auto !important; box-sizing: border-box; }
             
             #globalControls { top: 10px; right: 10px; gap: 5px; }
@@ -437,7 +440,7 @@
             
             #statusContainer { margin-bottom: 10px; gap: 10px; }
             .joker-avatar { width: 45px; height: 45px; }
-            #statusMessage { height: auto; min-height: 45px; padding: 5px 15px; font-size: 14px; max-width: 75%; }
+            #statusMessage { height: auto; min-height: 45px; display: flex !important; align-items: center !important; font-size: 14px; max-width: 75%; }
             #statusMessage::after { border-width: 8px 8px 8px 0; left: -8px; }
 
             .game-top-row { display: block; }
@@ -460,10 +463,6 @@
             .opponent-area { flex: 0 0 85vw !important; min-width: 85vw !important; max-width: 85vw !important; margin: 0 !important; }
             .player-area h3, .opponent-area h3 { font-size: 18px !important; margin: 5px 0; }
             
-            .opponent-hand-title-text { display: none !important; }
-            .opponent-hand-cards { display: none !important; } 
-            .opponent-hand-count-mobile { display: inline-block !important; font-size: 1.1em; color: #f1c40f; margin-top: 5px; }
-
             /* My Player Sticky Dashboard */
             #myPlayerContainer { 
                 position: fixed !important; bottom: 0 !important; left: 0 !important; 
@@ -481,47 +480,44 @@
                 gap: 10px !important; width: 100% !important; padding-bottom: 5px !important;
             }
 
+            .buffer-wrapper, .hand-wrapper {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
             .buffer-wrapper {
-                /* Dynamisk bredd sätts i JS, men detta fixar ramen/layouten */
+                /* Dynamisk bredd sätts i JS, men detta sätter reglerna */
                 flex: 0 0 auto !important;
-                min-width: 110px !important; /* Minsta bredd */
+                min-width: 110px !important; 
             }
 
             .hand-wrapper {
                 flex: 1 !important; min-width: 0 !important;
             }
 
-            .buffer-section {
+            .buffer-section, .hand-section {
                 background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
-                padding: 8px !important; display: flex !important; flex-direction: column !important; align-items: flex-start !important;
-                box-sizing: border-box !important; margin-bottom: 0 !important;
+                padding: 8px !important; display: flex !important; flex-direction: column !important;
+                box-sizing: border-box !important; margin-bottom: 0 !important; flex: 1 !important;
             }
+            .buffer-section { align-items: flex-start !important; }
 
-            .player-section { 
-                margin-bottom: 0 !important; 
-                padding: 8px !important; 
-                background: rgba(0, 0, 0, 0.4) !important; 
-                border-radius: 8px !important;
-                box-sizing: border-box !important;
-            }
-
-            .playable-title-mobile { 
+            .my-hand-title, .opponent-hand-title, .playable-title-mobile { 
                 display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important; 
                 text-align: left; color: #f1c40f; font-family: 'Pirata One', display, cursive; width: 100%;
                 line-height: 20px;
             }
+            
+            .opponent-hand-title { display: block !important; }
 
-            #myPlayerContainer h4 { 
-                display: block !important; 
-                margin: 0 0 5px 0 !important;
-                font-size: 16px !important;
-                text-align: left;
-                color: #f1c40f;
-                line-height: 20px;
+            .opponent-hand-count-mobile {
+                display: flex !important; align-items: center; justify-content: center; flex: 1;
+                font-size: 1.4em; color: #f1c40f; 
             }
+            .opponent-hand-cards { display: none !important; }
 
             /* Säkerställer att boxarna alltid är lika höga även när de är tomma */
-            .buffer-cards-div, .my-hand-cards, .opponent-hand-cards {
+            .buffer-cards-div, .my-hand-cards {
                 min-height: 69px; 
             }
 
@@ -1627,17 +1623,15 @@
 
                 const bufferWrapper = document.createElement('div');
                 bufferWrapper.className = 'buffer-wrapper';
-                // Beräkna bredden på mobilen: (antal kort * 46px) + ((antal kort - 1) * 5px gap) + 16px padding
-                // Normal (3 kort): (3*46) + (2*5) + 16 = 138 + 10 + 16 = 164px
-                // Hard (2 kort): (2*46) + (1*5) + 16 = 92 + 5 + 16 = 113px
+                // Beräkna bredden på mobilen
                 let bw = roomBufferSize === 3 ? 164 : 113;
                 bufferWrapper.style.flex = `0 0 ${bw}px`;
                 bufferWrapper.style.minWidth = `${bw}px`;
                 
-                let bufferTitle = `<h4 class="playable-title-mobile">Playable cards</h4>`;
-                
                 const bufferSection = document.createElement('div');
                 bufferSection.className = 'player-section buffer-section';
+                
+                let bufferTitle = `<h4 class="playable-title-mobile">Playable cards</h4>`;
                 bufferSection.innerHTML = bufferTitle;
                 
                 let bufferCardsDiv = document.createElement('div');
@@ -1694,12 +1688,15 @@
                 handWrapper.className = 'hand-wrapper';
 
                 const handSection = document.createElement('div');
-                handSection.className = 'player-section';
+                handSection.className = 'player-section hand-section';
                 
-                let handTitle = isMe 
-                    ? `<h4>Hand</h4>` 
-                    : `<h4><span class="opponent-hand-title-text">Hand</span> <span class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:12px; height:18px; vertical-align:middle; border-radius:2px; border:1px solid #333; margin-right:4px;"> x${p.hand.length}</span></h4>`;
-                handSection.innerHTML = handTitle;
+                let handTitleText = isMe ? 'Hand' : 'Hand';
+                let handTitleClass = isMe ? 'my-hand-title' : 'opponent-hand-title';
+                let handTitleHtml = `<h4 class="${handTitleClass}">${handTitleText}</h4>`;
+                
+                let opponentCountHtml = !isMe ? `<div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:24px; height:36px; vertical-align:middle; border-radius:3px; border:1px solid #333; margin-right:5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);"> x${p.hand.length}</div>` : '';
+
+                handSection.innerHTML = handTitleHtml + opponentCountHtml;
                 
                 let handCardsDiv = document.createElement('div');
                 handCardsDiv.className = isMe ? 'my-hand-cards' : 'opponent-hand-cards';
@@ -1882,6 +1879,7 @@
             gamePhase = 'gameover';
             interactionState = 'gameover';
             document.title = "House of Jokers";
+            document.getElementById('winMsg').innerText = data.msg;
             document.getElementById('winDialog').showModal();
             fireConfetti();
         });
