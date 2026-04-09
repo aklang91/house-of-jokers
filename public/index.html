@@ -317,7 +317,10 @@
             flex-shrink: 0;
         }
         
-        .card-corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1; font-family: serif; }
+        .card-corner { 
+            position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1.1; 
+            font-family: serif; 
+        }
         .top-left { top: 4px; left: 4px; }
         .bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
         .card-val { font-size: 20px; }
@@ -418,6 +421,7 @@
            MOBILE RESPONSIVE LAYOUT 
            ========================================= */
         @media (max-width: 800px) {
+            .game-logo { margin-top: 60px !important; }
             #globalControls { top: 10px; right: 10px; gap: 5px; }
             .global-btn { padding: 6px 10px !important; font-size: 14px !important; }
             #turnCounter { font-size: 20px !important; top: 10px; left: 10px; }
@@ -428,7 +432,7 @@
             #statusMessage::after { border-width: 8px 8px 8px 0; left: -8px; }
 
             .game-top-row { display: block; }
-            #gameWrapper { display: block; padding-bottom: 160px; /* Gör plats åt bottenmenyn */ }
+            #gameWrapper { display: block; padding-bottom: 180px; }
             #board { margin: 10px 0; padding: 10px; flex-basis: auto; max-width: 100%; width: 100%; }
 
             .card { width: 46px !important; height: 69px !important; border-radius: 4px !important; }
@@ -461,17 +465,29 @@
             }
 
             .my-cards-container {
-                display: flex !important; flex-direction: row !important; align-items: center !important;
+                display: flex !important; flex-direction: row !important; align-items: stretch !important;
                 gap: 10px !important; overflow-x: auto !important; padding-bottom: 5px !important; -webkit-overflow-scrolling: touch;
+            }
+
+            .player-section { 
+                margin-bottom: 0 !important; 
+                padding: 8px !important; 
+                background: rgba(0, 0, 0, 0.4) !important; 
+                border-radius: 8px !important;
+            }
+
+            #myPlayerContainer h4 { 
+                display: block !important; 
+                margin: 0 0 5px 0 !important;
+                font-size: 16px !important;
+                text-align: left;
+                color: #f1c40f;
             }
 
             .buffer-section {
                 min-height: auto !important; flex-wrap: nowrap !important; flex-shrink: 0 !important;
-                margin-bottom: 0 !important; padding-right: 15px !important; border-right: 2px solid rgba(212, 175, 55, 0.5) !important;
+                border-right: none !important; align-items: center !important; flex-direction: row !important;
             }
-
-            .player-section { margin-bottom: 0 !important; padding: 0 !important; background: transparent !important; }
-            #myPlayerContainer h4 { display: none !important; } 
 
             .my-hand-cards { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; }
             .hand-card { margin: 0 !important; }
@@ -485,7 +501,7 @@
             dialog button { font-size: 16px !important; padding: 8px 12px !important; }
         }
 
-        /* Modals */
+        /* Modals Generic */
         dialog { border: none; border-radius: 8px; padding: 20px; text-align: center; font-family: inherit; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         dialog::backdrop { background: rgba(0,0,0,0.7); }
         
@@ -1562,7 +1578,6 @@
                 
                 pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(You)' : ''} ${giveUpHtml}</h3>`;
 
-                // Wrap everything in my-cards-container for mobile horizontal layout
                 const cardsContainer = document.createElement('div');
                 cardsContainer.className = 'my-cards-container';
 
