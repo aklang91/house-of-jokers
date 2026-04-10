@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>House of Jokers</title>
+    
+    <link rel="icon" type="image/jpeg" href="joker.jpg">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -483,33 +485,24 @@
                 gap: 10px !important; width: 100% !important; padding-bottom: 5px !important;
             }
 
-            /* FIX: Wrappers får bakgrunden för att stretchas 100% exakt lika högt! */
-            .buffer-wrapper, .hand-wrapper {
-                display: flex !important;
-                flex-direction: column !important;
-                background: rgba(0, 0, 0, 0.4) !important; 
-                border-radius: 8px !important;
-                padding: 8px !important; 
-                box-sizing: border-box !important;
-            }
-
             .buffer-wrapper {
                 flex: 0 0 auto !important;
+                min-width: 110px !important; 
             }
 
             .hand-wrapper {
-                flex: 1 !important; min-width: 0 !important;
+                flex: 1 !important; min-width: 0 !important; 
             }
 
+            /* FIX: Låt flexbox matcha höjden och tvinga innehållet upp mot taket */
             .buffer-section, .hand-section {
-                background: transparent !important; 
-                padding: 0 !important; 
-                display: flex !important; flex-direction: column !important;
+                background: rgba(0, 0, 0, 0.4) !important; border-radius: 8px !important;
+                padding: 8px !important; display: flex !important; flex-direction: column !important;
                 box-sizing: border-box !important; margin-bottom: 0 !important; flex: 1 !important;
-                justify-content: flex-start !important; /* Tvingar innehållet upp i taket */
+                justify-content: flex-start !important; 
             }
 
-            /* Tvinga exakt höjd och no-wrap på rubrikerna så de alltid ligger i perfekt linje oavsett scrollbars i botten */
+            /* Tvinga exakt höjd och no-wrap på rubrikerna så de alltid ligger i linje */
             .my-hand-title, .opponent-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
                 display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important;
                 text-align: left !important; color: #f1c40f !important; font-family: 'Pirata One', display, cursive !important;
@@ -1622,7 +1615,6 @@
 
                 const bufferWrapper = document.createElement('div');
                 bufferWrapper.className = 'buffer-wrapper';
-                // Beräkna bredden på mobilen
                 let bw = roomBufferSize === 3 ? 164 : 113;
                 bufferWrapper.style.flex = `0 0 ${bw}px`;
                 bufferWrapper.style.minWidth = `${bw}px`;
@@ -1644,35 +1636,41 @@
                     
                     if (isMe && pIndex === activeTurn && interactionState !== 'gameover' && gamePhase === 'playing') {
                         let isCardToRevert = cardToRevert && cardToRevert.bIndex === bIndex;
+                        let isPenaltyState = (interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'blocked');
                         
                         if (!p.mustReplace) {
                             if (card.isFacedown) {
-                                cardEl.classList.add('glow-yellow');
-                                cardEl.classList.add('clickable');
-                                if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                                if (!isPenaltyState || interactionState === 'blocked') {
+                                    cardEl.classList.add('glow-yellow');
+                                    cardEl.classList.add('clickable');
+                                    if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                                }
                             } else {
-                                if (isCardPlayable(card)) {
-                                    cardEl.classList.add('glow-green');
-                                    cardEl.classList.add('clickable'); 
-                                    
-                                    if (interactionState === 'normal') {
-                                        cardEl.classList.add('draggable');
-                                        cardEl.draggable = true;
+                                if (isPenaltyState) {
+                                    if (!isCardToRevert) {
+                                        cardEl.classList.add('glow-red');
+                                        cardEl.classList.add('penalty-target', 'clickable');
                                         cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
-                                        cardEl.ondragstart = (ev) => {
-                                            dragCard(ev, pIndex, bIndex);
-                                            setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); 
-                                        };
-                                        cardEl.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                                     }
                                 } else {
-                                    cardEl.classList.add('glow-red');
+                                    if (isCardPlayable(card)) {
+                                        cardEl.classList.add('glow-green');
+                                        cardEl.classList.add('clickable'); 
+                                        
+                                        if (interactionState === 'normal') {
+                                            cardEl.classList.add('draggable');
+                                            cardEl.draggable = true;
+                                            cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                                            cardEl.ondragstart = (ev) => {
+                                                dragCard(ev, pIndex, bIndex);
+                                                setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); 
+                                            };
+                                            cardEl.ondragend = (ev) => { ev.target.style.opacity = '1'; };
+                                        }
+                                    } else {
+                                        cardEl.classList.add('glow-red');
+                                    }
                                 }
-                            }
-                            
-                            if ((interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'blocked') && !card.isFacedown && !isCardToRevert) {
-                                cardEl.classList.add('penalty-target', 'clickable');
-                                cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
                             }
                         }
                     }
