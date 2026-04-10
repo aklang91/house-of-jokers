@@ -798,12 +798,52 @@
     <script>
         const socket = io();
         
-        // HÄR ÄR DEN NYA LOKALA IDENTITETEN FÖR STEG 1
         let myPlayerId = localStorage.getItem('hoj_playerId');
         if (!myPlayerId) {
             myPlayerId = 'player_' + Math.random().toString(36).substring(2, 15);
             localStorage.setItem('hoj_playerId', myPlayerId);
         }
+
+        // =====================================
+        // WEB PUSH LOGIK (ASYNKRONT SPEL)
+        // =====================================
+        const PUBLIC_VAPID_KEY = 'BAkfBsBJnEK-5BFAxC_RZk7x-WPrSRk_gaSuatT7QCUl43ExpxgknYZFxFXdNV07ER7mBUMFoY4x7IxOT0pe3M4';
+
+        function urlB64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function enablePushNotifications(roomName) {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const swReg = await navigator.serviceWorker.register('/sw.js');
+                    const permission = await Notification.requestPermission();
+                    
+                    if (permission === 'granted') {
+                        const subscription = await swReg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlB64ToUint8Array(PUBLIC_VAPID_KEY)
+                        });
+                        
+                        socket.emit('savePushSubscription', { 
+                            playerId: myPlayerId, 
+                            roomName: roomName,
+                            subscription: subscription 
+                        });
+                    }
+                } catch (error) {
+                    console.error('Service Worker Error', error);
+                }
+            }
+        }
+        // =====================================
 
         let mySocketId = "";
         let myRoomName = "";
@@ -828,26 +868,13 @@
 
         let setupSelection = { hand: [], buffer: [] };
         let setupInitialized = false;
-
         let selectedJokerInfo = null;
 
         let tauntTimeout = null;
         let isTaunting = false;
         
-        const placementTaunts = [
-            "You think you can complete that house? No, I will block that path!",
-            "Oh, you wanted to play there? Too bad. The Joker claims it!",
-            "I'll just put this right here... good luck getting past me!"
-        ];
-        
-        const randomTaunts = [
-            "Haha! You will never beat me!",
-            "Are you even trying? This is too easy.",
-            "I can read your faces. You have no idea what to do, do you?",
-            "Tick tock... your precious house is falling apart.",
-            "That was your master plan? Hilarious.",
-            "You might as well give up now. The House of Jokers always wins."
-        ];
+        const placementTaunts = ["You think you can complete that house? No, I will block that path!", "Oh, you wanted to play there? Too bad. The Joker claims it!", "I'll just put this right here... good luck getting past me!"];
+        const randomTaunts = ["Haha! You will never beat me!", "Are you even trying? This is too easy.", "I can read your faces. You have no idea what to do, do you?", "Tick tock... your precious house is falling apart.", "That was your master plan? Hilarious.", "You might as well give up now. The House of Jokers always wins."];
 
         let isMuted = true;
         const bgMusic = document.getElementById('bgMusic');
@@ -856,15 +883,12 @@
 
         socket.on('yourId', (id) => { 
             mySocketId = id; 
-            
-            // FÖRSÖK ÅTERANSLUTA TILL ETT SPEL DIREKT NÄR SIDAN LADDAS
             let savedRoom = localStorage.getItem('hoj_roomName');
             if (savedRoom) {
                 socket.emit('rejoinGame', { playerId: myPlayerId, roomName: savedRoom }, (res) => {
                     if (res.success) {
                         myRoomName = savedRoom;
                     } else {
-                        // Spelet fanns inte (eller var avslutat)
                         localStorage.removeItem('hoj_roomName');
                         showStep1();
                     }
@@ -878,16 +902,11 @@
             isMuted = !isMuted;
             bgMusic.muted = isMuted;
             document.getElementById('muteBtn').innerText = isMuted ? "🔇" : "🔊";
-            
-            if (!isMuted && bgMusic.paused) {
-                bgMusic.play().catch(e => console.log("Audio blocked: ", e));
-            }
+            if (!isMuted && bgMusic.paused) bgMusic.play().catch(e => console.log("Audio blocked: ", e));
         }
 
         function startMusicOnInteraction() {
-            if (bgMusic.paused && !isMuted) {
-                bgMusic.play().catch(e => console.log("Audio blocked: ", e));
-            }
+            if (bgMusic.paused && !isMuted) bgMusic.play().catch(e => console.log("Audio blocked: ", e));
         }
 
         function showCreateView() {
@@ -918,19 +937,18 @@
             startMusicOnInteraction();
             const playerName = document.getElementById('inputPlayerName').value;
             const roomName = document.getElementById('inputCreateRoomName').value;
-            
             const maxPlayers = document.querySelector('input[name="playerCount"]:checked').value;
             const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
 
             if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Enter a room name!";
             
-            // SKICKAR MED MYPLAYERID
             socket.emit('createGame', { playerId: myPlayerId, playerName, roomName, maxPlayers, difficulty }, (res) => {
                 if(res.success) {
                     myRoomName = roomName;
                     localStorage.setItem('hoj_roomName', roomName);
                     document.getElementById('createView').style.display = 'none';
                     document.getElementById('waitingView').style.display = 'block';
+                    enablePushNotifications(roomName); 
                 } else {
                     document.getElementById('lobbyErrorCreate').innerText = res.msg;
                 }
@@ -944,13 +962,13 @@
 
             if(!roomName) return document.getElementById('lobbyErrorJoin').innerText = "Enter a room name!";
             
-            // SKICKAR MED MYPLAYERID
             socket.emit('joinGame', { playerId: myPlayerId, playerName, roomName }, (res) => {
                 if(res.success) {
                     myRoomName = roomName;
                     localStorage.setItem('hoj_roomName', roomName);
                     document.getElementById('joinView').style.display = 'none';
                     document.getElementById('waitingView').style.display = 'block';
+                    enablePushNotifications(roomName); 
                 } else {
                     document.getElementById('lobbyErrorJoin').innerText = res.msg;
                 }
@@ -974,31 +992,20 @@
             if (myRoomName) {
                 socket.emit('leaveGame', { roomName: myRoomName, playerId: myPlayerId });
             }
-
             localStorage.removeItem('hoj_roomName');
-
             document.getElementById('playerLeftDialog').close();
             document.getElementById('winDialog').close();
             document.getElementById('loseDialog').close();
             
-            myRoomName = "";
-            localPlayers = [];
-            currentBoardState = {};
-            activeTurn = 0;
-            gamePhase = 'waiting';
-            cardsPlayedCount = 0;
-            previousCardsPlayedCount = 0;
-            previousPlayerCount = 0;
-            totalTurns = 0;
-            setupInitialized = false;
-            selectedJokerInfo = null;
+            myRoomName = ""; localPlayers = []; currentBoardState = {}; activeTurn = 0; gamePhase = 'waiting';
+            cardsPlayedCount = 0; previousCardsPlayedCount = 0; previousPlayerCount = 0; totalTurns = 0;
+            setupInitialized = false; selectedJokerInfo = null;
             
             document.getElementById('waitingJoinMessages').innerText = "";
             document.getElementById('turnCounter').style.display = 'none';
             
             isTaunting = false;
             if (tauntTimeout) clearTimeout(tauntTimeout);
-            
             if (confettiCanvas) confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
             confettiParticles = [];
 
@@ -1011,12 +1018,10 @@
 
         socket.on('roomUpdate', (room) => {
             document.getElementById('waitingRoomName').innerText = `Room name: ${room.roomName}`;
-            
             let playerListHTML = room.players.map(p => `<div>${p.name} joined the party.</div>`).join('');
             document.getElementById('waitingJoinMessages').innerHTML = playerListHTML;
 
             if (room.players.length === room.maxPlayers) {
-                // KOLLAR NU MOT MYPLAYERID
                 if (room.hostId === myPlayerId) {
                     document.getElementById('waitingText').style.display = 'none'; 
                     document.getElementById('startRoundBtn').style.display = 'inline-block';
@@ -1032,7 +1037,6 @@
                 document.getElementById('waitingText').innerText = `Waiting for players... (${room.players.length}/${room.maxPlayers})`;
                 document.getElementById('startRoundBtn').style.display = 'none';
             }
-            
             previousPlayerCount = room.players.length;
         });
 
@@ -1043,27 +1047,19 @@
         });
 
         function getCardName(value) {
-            if (value === 1) return 'A';
-            if (value === 11) return 'J';
-            if (value === 12) return 'Q';
-            if (value === 13) return 'K';
+            if (value === 1) return 'A'; if (value === 11) return 'J'; if (value === 12) return 'Q'; if (value === 13) return 'K';
             return value;
         }
 
         function setStatus(msg) {
-            const el = document.getElementById('statusMessage');
-            const content = el.querySelector('.status-message-content');
+            const content = document.querySelector('.status-message-content');
             content.innerText = msg;
         }
 
         function showTemporaryTaunt(msg) {
-            isTaunting = true;
-            setStatus(msg);
+            isTaunting = true; setStatus(msg);
             if (tauntTimeout) clearTimeout(tauntTimeout);
-            tauntTimeout = setTimeout(() => {
-                isTaunting = false;
-                updateMainStatus(); 
-            }, 4000);
+            tauntTimeout = setTimeout(() => { isTaunting = false; updateMainStatus(); }, 4000);
         }
 
         function updateMainStatus() {
@@ -1076,11 +1072,8 @@
                 let me = localPlayers.find(p => p.id === myPlayerId);
                 if (me && !me.setupConfirmed) {
                     let needed = roomBufferSize - setupSelection.buffer.length;
-                    if (needed > 0) {
-                        setStatus(`Pick ${needed} cards to place face-up. Choose wisely...`);
-                    } else {
-                        setStatus(`Cards picked! Click 'Confirm cards' to lock them in.`);
-                    }
+                    if (needed > 0) setStatus(`Pick ${needed} cards to place face-up. Choose wisely...`);
+                    else setStatus(`Cards picked! Click 'Confirm cards' to lock them in.`);
                 } else {
                     setStatus(`Waiting for the others to make up their minds...`);
                 }
@@ -1091,60 +1084,27 @@
             if (!player) return;
 
             isMyTurn = (player.id === myPlayerId);
-
-            if (isMyTurn && gamePhase === 'playing') {
-                document.title = "Your turn - House of Jokers";
-            } else {
-                document.title = "House of Jokers";
-            }
+            document.title = isMyTurn ? "Your turn - House of Jokers" : "House of Jokers";
 
             if (player.mustReplace) {
-                if(isMyTurn) {
-                    if (player.replaceFacedown) {
-                        setStatus(`Tap a card in your hand to refill. Remember to memorize it before picking, because it's going face-down!`);
-                    } else {
-                        setStatus(`Tap a card in your hand to fill the empty spot.`);
-                    }
-                } else {
-                    setStatus(`Waiting for ${player.name} to refill their cards. Tick tock...`);
-                }
+                if(isMyTurn) setStatus(player.replaceFacedown ? `Tap a card in your hand to refill. Remember to memorize it before picking, because it's going face-down!` : `Tap a card in your hand to fill the empty spot.`);
+                else setStatus(`Waiting for ${player.name} to refill their cards. Tick tock...`);
             } else {
                 if (interactionState === 'blocked') {
                     let hasFaceDown = player.buffer.some(c => c.isFacedown);
                     let hasFaceUpUnplayable = player.buffer.some(c => !c.isFacedown && !isCardPlayable(c));
-                    
                     if(isMyTurn) {
-                        if (!hasFaceDown) {
-                            setStatus(`Uh oh, stuck are we? Tap a red card to flip it face-down as a penalty.`);
-                        } else if (hasFaceDown && hasFaceUpUnplayable) {
-                            setStatus(`You're stuck! Guess a face-down card, or take a penalty and flip a red one.`);
-                        } else {
-                            setStatus(`Only face-down cards left! Time to test your memory... tap one to guess.`);
-                        }
-                    } else {
-                        setStatus(`${player.name} is stuck and has to make a tough choice.`);
-                    }
+                        if (!hasFaceDown) setStatus(`Uh oh, stuck are we? Tap a red card to flip it face-down as a penalty.`);
+                        else if (hasFaceDown && hasFaceUpUnplayable) setStatus(`You're stuck! Guess a face-down card, or take a penalty and flip a red one.`);
+                        else setStatus(`Only face-down cards left! Time to test your memory... tap one to guess.`);
+                    } else setStatus(`${player.name} is stuck and has to make a tough choice.`);
                 } else {
                     if(isMyTurn) {
                         let hasFaceDown = player.buffer.some(c => c.isFacedown);
                         let allJokersPlaced = cardsPlayedCount >= 3;
-                        
-                        if (hasFaceDown) {
-                            if (allJokersPlaced) {
-                                setStatus(`Your move! Play a green card, move a joker, or gamble on a face-down card.`);
-                            } else {
-                                setStatus(`Your move! Play a green card or guess a face-down card. No joker moving yet!`);
-                            }
-                        } else {
-                            if (allJokersPlaced) {
-                                setStatus(`Your turn! Play a green card, or move a joker if you're feeling sneaky.`);
-                            } else {
-                                setStatus(`Your turn! Play a green card. Jokers are staying put for now.`);
-                            }
-                        }
-                    } else {
-                        setStatus(`${player.name} is thinking... or just confused.`);
-                    }
+                        if (hasFaceDown) setStatus(allJokersPlaced ? `Your move! Play a green card, move a joker, or gamble on a face-down card.` : `Your move! Play a green card or guess a face-down card. No joker moving yet!`);
+                        else setStatus(allJokersPlaced ? `Your turn! Play a green card, or move a joker if you're feeling sneaky.` : `Your turn! Play a green card. Jokers are staying put for now.`);
+                    } else setStatus(`${player.name} is thinking... or just confused.`);
                 }
             }
         }
@@ -1157,9 +1117,7 @@
             return false;
         }
 
-        function giveUp() {
-            document.getElementById('giveUpConfirmDialog').showModal();
-        }
+        function giveUp() { document.getElementById('giveUpConfirmDialog').showModal(); }
 
         function confirmGiveUp() {
             document.getElementById('giveUpConfirmDialog').close();
@@ -1169,9 +1127,7 @@
 
         function undoSetup() {
             if (setupSelection.buffer.length > 0) {
-                setupSelection.hand.push(...setupSelection.buffer);
-                setupSelection.buffer = [];
-                renderPlayers();
+                setupSelection.hand.push(...setupSelection.buffer); setupSelection.buffer = []; renderPlayers();
             }
         }
 
@@ -1194,35 +1150,24 @@
             
             let card = localPlayers[pIndex].buffer[bIndex];
             if (interactionState === 'normal' && isCardPlayable(card) && !card.isFacedown) {
-                ev.dataTransfer.setData("type", "card");
-                ev.dataTransfer.setData("pIndex", pIndex);
-                ev.dataTransfer.setData("bIndex", bIndex);
-                
+                ev.dataTransfer.setData("type", "card"); ev.dataTransfer.setData("pIndex", pIndex); ev.dataTransfer.setData("bIndex", bIndex);
                 setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0);
-            } else {
-                ev.preventDefault();
-            }
+            } else ev.preventDefault();
         }
 
         window.clickJoker = function(ev, suit, side) {
             ev.stopPropagation(); 
-            if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === side) {
-                selectedJokerInfo = null; 
-            } else {
-                selectedJokerInfo = { suit, side }; 
-            }
+            if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === side) selectedJokerInfo = null; 
+            else selectedJokerInfo = { suit, side }; 
             renderBoard(); 
         };
 
         window.handleZoneClick = function(ev, toSuit, toSide) {
             if (ev) ev.stopPropagation();
-            
             if (!selectedJokerInfo) return; 
             if (interactionState === 'waiting' || interactionState === 'gameover' || gamePhase === 'setup') return;
 
-            let fromSuit = selectedJokerInfo.suit;
-            let fromSide = selectedJokerInfo.side;
-
+            let fromSuit = selectedJokerInfo.suit; let fromSide = selectedJokerInfo.side;
             let state = currentBoardState[toSuit];
             let hasJokerAtTarget = false;
             if(toSide === 'min') hasJokerAtTarget = state.jokerMin;
@@ -1233,8 +1178,7 @@
                 interactionState = 'waiting';
                 let pIndex = localPlayers.findIndex(p => p.id === myPlayerId);
                 socket.emit('moveJoker', { roomName: myRoomName, playerId: myPlayerId, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
-                    interactionState = 'normal';
-                    selectedJokerInfo = null; 
+                    interactionState = 'normal'; selectedJokerInfo = null; 
                     if(!res.success) {
                         let msg = res.msg;
                         if (msg.includes("already taken")) msg = "Oops, that spot already has a joker!";
@@ -1242,37 +1186,23 @@
                         setStatus(msg);
                     }
                 });
-            } else {
-                setStatus("Oops, that spot already has a joker!");
-                selectedJokerInfo = null;
-                renderBoard();
-            }
+            } else { setStatus("Oops, that spot already has a joker!"); selectedJokerInfo = null; renderBoard(); }
         };
 
         window.dragJoker = function(ev, suit, side) {
             if (!ev.target.classList.contains('joker-active-badge')) { ev.preventDefault(); return; }
-            ev.stopPropagation(); 
-            ev.dataTransfer.setData("type", "joker");
-            ev.dataTransfer.setData("fromSuit", suit);
-            ev.dataTransfer.setData("fromSide", side);
-            
+            ev.stopPropagation(); ev.dataTransfer.setData("type", "joker"); ev.dataTransfer.setData("fromSuit", suit); ev.dataTransfer.setData("fromSide", side);
             setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0);
         };
 
         function drop(ev, toSuit, toSide) {
-            ev.preventDefault();
-            ev.currentTarget.classList.remove('drag-over');
-            
+            ev.preventDefault(); ev.currentTarget.classList.remove('drag-over');
             if (interactionState === 'waiting' || interactionState === 'gameover' || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) return;
 
             let type = ev.dataTransfer.getData("type");
-
             if (type === "joker") {
-                let fromSuit = ev.dataTransfer.getData("fromSuit");
-                let fromSide = ev.dataTransfer.getData("fromSide");
-                let state = currentBoardState[toSuit];
-                let hasJokerAtTarget = false;
-                
+                let fromSuit = ev.dataTransfer.getData("fromSuit"); let fromSide = ev.dataTransfer.getData("fromSide");
+                let state = currentBoardState[toSuit]; let hasJokerAtTarget = false;
                 if(toSide === 'min') hasJokerAtTarget = state.jokerMin;
                 if(toSide === 'max') hasJokerAtTarget = state.jokerMax;
                 if(toSide === 'center') hasJokerAtTarget = state.jokerCenter;
@@ -1281,8 +1211,7 @@
                     interactionState = 'waiting';
                     let pIndex = localPlayers.findIndex(p => p.id === myPlayerId);
                     socket.emit('moveJoker', { roomName: myRoomName, playerId: myPlayerId, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
-                        interactionState = 'normal';
-                        selectedJokerInfo = null;
+                        interactionState = 'normal'; selectedJokerInfo = null;
                         if(!res.success) {
                             let msg = res.msg;
                             if (msg.includes("already taken")) msg = "Oops, that spot already has a joker!";
@@ -1290,15 +1219,10 @@
                             setStatus(msg);
                         }
                     });
-                } else {
-                    setStatus("Oops, that spot already has a joker!");
-                }
-
+                } else setStatus("Oops, that spot already has a joker!");
             } else if (type === "card") {
-                let pIndex = parseInt(ev.dataTransfer.getData("pIndex"));
-                let bIndex = parseInt(ev.dataTransfer.getData("bIndex"));
+                let pIndex = parseInt(ev.dataTransfer.getData("pIndex")); let bIndex = parseInt(ev.dataTransfer.getData("bIndex"));
                 if (isNaN(pIndex) || isNaN(bIndex)) return;
-
                 let card = localPlayers[pIndex].buffer[bIndex];
                 
                 interactionState = 'waiting'; 
@@ -1308,8 +1232,7 @@
                         let msg = res.msg;
                         if (msg.includes("Invalid move")) msg = "Nope, that doesn't go there! Try again.";
                         if (msg.includes("Blocked")) msg = "Blocked! A joker is sitting there.";
-                        setStatus(msg);
-                        setTimeout(updateMainStatus, 2500); 
+                        setStatus(msg); setTimeout(updateMainStatus, 2500); 
                     }
                 });
             }
@@ -1318,7 +1241,6 @@
         function handleBufferClick(pIndex, bIndex, event) {
             if (localPlayers[pIndex].id !== myPlayerId) return;
             if (interactionState === 'waiting' || interactionState === 'gameover' || pIndex !== activeTurn || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) return;
-            
             let card = localPlayers[pIndex].buffer[bIndex];
 
             if (event && event.currentTarget && event.currentTarget.classList.contains('penalty-target')) {
@@ -1326,17 +1248,13 @@
                 if (cardToRevert) {
                     socket.emit('flipCardAndRevert', { roomName: myRoomName, playerId: myPlayerId, pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
                     cardToRevert = null;
-                } else {
-                    socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
-                }
+                } else socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
                 return;
             }
 
             if (interactionState === 'normal' && isCardPlayable(card) && !card.isFacedown) {
-                let targetSuit = card.suit;
-                let state = currentBoardState[targetSuit];
+                let targetSuit = card.suit; let state = currentBoardState[targetSuit];
                 let targetSide = (card.value === state.max + 1) ? 'max' : 'min';
-                
                 interactionState = 'waiting'; 
                 socket.emit('playCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex, card, toSuit: targetSuit, toSide: targetSide }, (res) => {
                     interactionState = 'normal'; 
@@ -1346,19 +1264,15 @@
             }
 
             if (interactionState === 'penalty' || interactionState === 'penalty_with_revert') {
-                setStatus("Hey, you have to pick a face-up card with a red glow to turn down!");
-                return;
+                setStatus("Hey, you have to pick a face-up card with a red glow to turn down!"); return;
             }
 
             if (interactionState === 'blocked' || interactionState === 'normal') {
                 if (card.isFacedown) {
-                    document.getElementById('guessSuit').value = '♥';
-                    document.getElementById('guessValue').value = '1';
-                    pendingGuessCard = { pIndex, bIndex, card };
-                    document.getElementById('guessDialog').showModal();
+                    document.getElementById('guessSuit').value = '♥'; document.getElementById('guessValue').value = '1';
+                    pendingGuessCard = { pIndex, bIndex, card }; document.getElementById('guessDialog').showModal();
                 } else if (interactionState === 'blocked') {
-                    interactionState = 'waiting'; 
-                    socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
+                    interactionState = 'waiting'; socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
                 }
             }
         }
@@ -1367,28 +1281,22 @@
             document.getElementById('guessDialog').close();
             const guessSuit = document.getElementById('guessSuit').value;
             const guessValue = parseInt(document.getElementById('guessValue').value);
-            
             let faceUpCountBefore = localPlayers[activeTurn].buffer.filter(c => !c.isFacedown).length;
             const actualCard = pendingGuessCard.card;
             
             if (actualCard.suit === guessSuit && actualCard.value === guessValue) {
                 socket.emit('revealCard', { roomName: myRoomName, playerId: myPlayerId, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex });
                 pendingGuessCard.card.isFacedown = false; 
-                
                 let isPlayable = isCardPlayable(actualCard);
 
                 if (isPlayable) {
-                    interactionState = 'normal';
-                    let allJokersPlaced = cardsPlayedCount >= 3;
-                    showTemporaryTaunt("Damn! You guessed right!");
+                    interactionState = 'normal'; let allJokersPlaced = cardsPlayedCount >= 3; showTemporaryTaunt("Damn! You guessed right!");
                 } else {
                     if (faceUpCountBefore === 0) {
                         interactionState = 'gameover';
                         socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed correctly, but the card couldn't be played and there are no other cards to turn down. You lost!` });
                     } else {
-                        cardToRevert = pendingGuessCard; 
-                        interactionState = 'penalty_with_revert';
-                        showTemporaryTaunt(`Right card, wrong time! Take your penalty.`);
+                        cardToRevert = pendingGuessCard; interactionState = 'penalty_with_revert'; showTemporaryTaunt(`Right card, wrong time! Take your penalty.`);
                     }
                 }
             } else {
@@ -1396,39 +1304,24 @@
                     interactionState = 'gameover';
                     socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed wrong on their last face-down card. You lost the game!` });
                 } else {
-                    interactionState = 'penalty';
-                    showTemporaryTaunt(`Haha! You guessed wrong! Turn a card down.`);
+                    interactionState = 'penalty'; showTemporaryTaunt(`Haha! You guessed wrong! Turn a card down.`);
                 }
             }
-            pendingGuessCard = null;
-            renderPlayers(); 
-            renderBoard(); 
+            pendingGuessCard = null; renderPlayers(); renderBoard(); 
         }
 
         function generateCardHTML(value, suit) {
             let valStr = getCardName(value);
             let colorClass = (suit === '♥' || suit === '♦') ? 'red' : 'black';
             return `
-                <div class="card-corner top-left ${colorClass}">
-                    <div class="card-val">${valStr}</div>
-                    <div class="card-suit">${suit}</div>
-                </div>
-                <div class="card-corner bottom-right ${colorClass}">
-                    <div class="card-val">${valStr}</div>
-                    <div class="card-suit">${suit}</div>
-                </div>
-            `;
+                <div class="card-corner top-left ${colorClass}"><div class="card-val">${valStr}</div><div class="card-suit">${suit}</div></div>
+                <div class="card-corner bottom-right ${colorClass}"><div class="card-val">${valStr}</div><div class="card-suit">${suit}</div></div>`;
         }
 
         function createCardDOM(card, isFacedown = false) {
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'card';
-            if (isFacedown) {
-                cardDiv.classList.add('facedown');
-                cardDiv.innerHTML = '';
-            } else {
-                cardDiv.innerHTML = generateCardHTML(card.value, card.suit);
-            }
+            const cardDiv = document.createElement('div'); cardDiv.className = 'card';
+            if (isFacedown) { cardDiv.classList.add('facedown'); cardDiv.innerHTML = ''; } 
+            else { cardDiv.innerHTML = generateCardHTML(card.value, card.suit); }
             return cardDiv;
         }
 
@@ -1437,15 +1330,8 @@
             let hasJoker = side === 'min' ? state.jokerMin : state.jokerMax;
             let isPlayed = val !== 7; 
             let isComplete = (side === 'min' && val === 1) || (side === 'max' && val === 13);
-            
             let html = '';
-            if (!isComplete) {
-                if (!isPlayed) {
-                    html = side === 'min' ? 'Down' : 'Up';
-                } else {
-                    html = generateCardHTML(val, suit);
-                }
-            }
+            if (!isComplete) { if (!isPlayed) html = side === 'min' ? 'Down' : 'Up'; else html = generateCardHTML(val, suit); }
             return html;
         }
 
@@ -1453,218 +1339,103 @@
             let myTurnHasPlayable = false;
             let isMyTurn = localPlayers[activeTurn] && localPlayers[activeTurn].id === myPlayerId;
             if (isMyTurn && gamePhase === 'playing' && !localPlayers[activeTurn].mustReplace) {
-                localPlayers[activeTurn].buffer.forEach(c => {
-                    if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true;
-                });
+                localPlayers[activeTurn].buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
             }
             let jokersActive = myTurnHasPlayable && cardsPlayedCount >= 3 && interactionState === 'normal';
-
-            let shimmerSide = null;
-            let shimmerSuit = null;
+            let shimmerSide = null; let shimmerSuit = null;
             if (roomLastAction && roomLastActionTime && (Date.now() - roomLastActionTime < 1500) && roomLastAction.type === 'play') {
-                shimmerSide = roomLastAction.side;
-                shimmerSuit = roomLastAction.card.suit;
+                shimmerSide = roomLastAction.side; shimmerSuit = roomLastAction.card.suit;
             }
-
-            const boardDiv = document.getElementById('boardContainer');
-            boardDiv.innerHTML = '';
-            
+            const boardDiv = document.getElementById('boardContainer'); boardDiv.innerHTML = '';
             ['♠', '♥', '♣', '♦'].forEach(suit => {
-                const state = currentBoardState[suit];
-                if (!state) return;
-
-                const row = document.createElement('div');
-                row.className = 'suit-row';
-
-                // --- MIN ZONE ---
+                const state = currentBoardState[suit]; if (!state) return;
+                const row = document.createElement('div'); row.className = 'suit-row';
                 let isCompleteMin = state.min === 1;
-                const minZone = document.createElement('div');
-                minZone.className = 'drop-zone'; 
-                
-                if (isCompleteMin) {
-                    minZone.classList.add('completed-zone');
-                } else if (state.min !== 7) {
-                    minZone.classList.add('played-card');
-                }
-
-                if (shimmerSide === 'min' && shimmerSuit === suit) {
-                    minZone.classList.add('shimmer-effect');
-                }
-
-                if (!isCompleteMin) {
-                    minZone.ondrop = (ev) => drop(ev, suit, 'min');
-                    minZone.ondragover = allowDrop;
-                    minZone.ondragleave = dragLeave;
-                    minZone.onclick = (ev) => handleZoneClick(ev, suit, 'min');
-                }
+                const minZone = document.createElement('div'); minZone.className = 'drop-zone'; 
+                if (isCompleteMin) minZone.classList.add('completed-zone'); else if (state.min !== 7) minZone.classList.add('played-card');
+                if (shimmerSide === 'min' && shimmerSuit === suit) minZone.classList.add('shimmer-effect');
+                if (!isCompleteMin) { minZone.ondrop = (ev) => drop(ev, suit, 'min'); minZone.ondragover = allowDrop; minZone.ondragleave = dragLeave; minZone.onclick = (ev) => handleZoneClick(ev, suit, 'min'); }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
-                
                 if(state.jokerMin) {
-                    let jBadge = document.createElement('div');
-                    jBadge.className = 'joker-badge';
+                    let jBadge = document.createElement('div'); jBadge.className = 'joker-badge';
                     if(jokersActive) {
-                        jBadge.classList.add('joker-active-badge');
-                        jBadge.draggable = true;
-                        jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'min');
-                        jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
-                        
+                        jBadge.classList.add('joker-active-badge'); jBadge.draggable = true; jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'min'); jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                         jBadge.onclick = (ev) => clickJoker(ev, suit, 'min'); 
-                        if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'min') {
-                            jBadge.classList.add('joker-selected');
-                        }
-                    } else {
-                        jBadge.classList.add('joker-inactive-badge');
-                    }
+                        if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'min') jBadge.classList.add('joker-selected');
+                    } else jBadge.classList.add('joker-inactive-badge');
                     minZone.appendChild(jBadge);
                 }
-
-                // --- CENTER ---
-                const sevenCard = createCardDOM({ value: 7, suit: suit });
-                sevenCard.classList.add('center-seven');
-                
+                const sevenCard = createCardDOM({ value: 7, suit: suit }); sevenCard.classList.add('center-seven');
                 let suitComplete = (state.min === 1 && state.max === 13);
-                if (suitComplete) {
-                    sevenCard.ondrop = (ev) => drop(ev, suit, 'center');
-                    sevenCard.ondragover = allowDrop;
-                    sevenCard.ondragleave = dragLeave;
-                    sevenCard.onclick = (ev) => handleZoneClick(ev, suit, 'center');
-                }
-                
-                if (state.jokerCenter) {
-                    let jBadge = document.createElement('div');
-                    jBadge.className = 'joker-badge eliminated-joker';
-                    sevenCard.appendChild(jBadge);
-                }
-
-                // --- MAX ZONE ---
+                if (suitComplete) { sevenCard.ondrop = (ev) => drop(ev, suit, 'center'); sevenCard.ondragover = allowDrop; sevenCard.ondragleave = dragLeave; sevenCard.onclick = (ev) => handleZoneClick(ev, suit, 'center'); }
+                if (state.jokerCenter) { let jBadge = document.createElement('div'); jBadge.className = 'joker-badge eliminated-joker'; sevenCard.appendChild(jBadge); }
                 let isCompleteMax = state.max === 13;
-                const maxZone = document.createElement('div');
-                maxZone.className = 'drop-zone';
-                
-                if (isCompleteMax) {
-                    maxZone.classList.add('completed-zone');
-                } else if (state.max !== 7) {
-                    maxZone.classList.add('played-card');
-                }
-
-                if (shimmerSide === 'max' && shimmerSuit === suit) {
-                    maxZone.classList.add('shimmer-effect');
-                }
-
-                if (!isCompleteMax) {
-                    maxZone.ondrop = (ev) => drop(ev, suit, 'max');
-                    maxZone.ondragover = allowDrop;
-                    maxZone.ondragleave = dragLeave;
-                    maxZone.onclick = (ev) => handleZoneClick(ev, suit, 'max');
-                }
+                const maxZone = document.createElement('div'); maxZone.className = 'drop-zone';
+                if (isCompleteMax) maxZone.classList.add('completed-zone'); else if (state.max !== 7) maxZone.classList.add('played-card');
+                if (shimmerSide === 'max' && shimmerSuit === suit) maxZone.classList.add('shimmer-effect');
+                if (!isCompleteMax) { maxZone.ondrop = (ev) => drop(ev, suit, 'max'); maxZone.ondragover = allowDrop; maxZone.ondragleave = dragLeave; maxZone.onclick = (ev) => handleZoneClick(ev, suit, 'max'); }
                 maxZone.innerHTML = createBoardZoneContent(state, 'max', suit);
-                
                 if(state.jokerMax) {
-                    let jBadge = document.createElement('div');
-                    jBadge.className = 'joker-badge';
+                    let jBadge = document.createElement('div'); jBadge.className = 'joker-badge';
                     if(jokersActive) {
-                        jBadge.classList.add('joker-active-badge');
-                        jBadge.draggable = true;
-                        jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'max');
-                        jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
-
+                        jBadge.classList.add('joker-active-badge'); jBadge.draggable = true; jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'max'); jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                         jBadge.onclick = (ev) => clickJoker(ev, suit, 'max'); 
-                        if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'max') {
-                            jBadge.classList.add('joker-selected');
-                        }
-                    } else {
-                        jBadge.classList.add('joker-inactive-badge');
-                    }
+                        if (selectedJokerInfo && selectedJokerInfo.suit === suit && selectedJokerInfo.side === 'max') jBadge.classList.add('joker-selected');
+                    } else jBadge.classList.add('joker-inactive-badge');
                     maxZone.appendChild(jBadge);
                 }
-
-                row.appendChild(minZone);
-                row.appendChild(sevenCard);
-                row.appendChild(maxZone);
-                boardDiv.appendChild(row);
+                row.appendChild(minZone); row.appendChild(sevenCard); row.appendChild(maxZone); boardDiv.appendChild(row);
             });
         }
 
         function renderPlayers() {
-            let player = localPlayers[activeTurn];
-            let myTurnHasPlayable = false;
-
+            let player = localPlayers[activeTurn]; let myTurnHasPlayable = false;
             if (player && player.id === myPlayerId && gamePhase === 'playing' && !player.mustReplace) {
-                player.buffer.forEach(c => {
-                    if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true;
-                });
-                
-                if (!myTurnHasPlayable && interactionState === 'normal') {
-                    interactionState = 'blocked';
-                }
+                player.buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
+                if (!myTurnHasPlayable && interactionState === 'normal') interactionState = 'blocked';
             }
 
             const opponentsContainer = document.getElementById('playersContainer');
             const myContainer = document.getElementById('myPlayerContainer');
-            opponentsContainer.innerHTML = '';
-            myContainer.innerHTML = '';
-
+            opponentsContainer.innerHTML = ''; myContainer.innerHTML = '';
             let myIndex = localPlayers.findIndex(p => p.id === myPlayerId);
             if (myIndex === -1) myIndex = 0; 
             
             let orderedIndices = [];
-            for (let i = 0; i < localPlayers.length; i++) {
-                orderedIndices.push((myIndex + i) % localPlayers.length);
-            }
+            for (let i = 0; i < localPlayers.length; i++) orderedIndices.push((myIndex + i) % localPlayers.length);
 
             orderedIndices.forEach(pIndex => {
-                let p = localPlayers[pIndex];
-                let isMe = p.id === myPlayerId;
+                let p = localPlayers[pIndex]; let isMe = p.id === myPlayerId;
                 const pDiv = document.createElement('div');
-                
                 let isMyTurnOrSetup = (pIndex === activeTurn && gamePhase === 'playing') || (isMe && gamePhase === 'setup');
-
-                if (isMe) {
-                    pDiv.className = `player-area ${isMyTurnOrSetup ? 'active-turn' : ''}`;
-                } else {
-                    pDiv.className = `opponent-area ${pIndex === activeTurn && gamePhase === 'playing' ? 'active-turn' : ''}`;
-                }
+                if (isMe) pDiv.className = `player-area ${isMyTurnOrSetup ? 'active-turn' : ''}`;
+                else pDiv.className = `opponent-area ${pIndex === activeTurn && gamePhase === 'playing' ? 'active-turn' : ''}`;
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
-                    if (!setupInitialized) {
-                        setupSelection.hand = [...p.hand];
-                        setupSelection.buffer = [];
-                        setupInitialized = true;
-                    }
+                    if (!setupInitialized) { setupSelection.hand = [...p.hand]; setupSelection.buffer = []; setupInitialized = true; }
                     p = { ...p, hand: setupSelection.hand, buffer: setupSelection.buffer };
                 }
                 
-                let giveUpHtml = '';
-                let allFacedown = p.buffer.length > 0 && p.buffer.every(c => c.isFacedown);
-                
+                let giveUpHtml = ''; let allFacedown = p.buffer.length > 0 && p.buffer.every(c => c.isFacedown);
                 if (allFacedown && pIndex === activeTurn && isMe && gamePhase === 'playing' && !p.mustReplace && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'penalty')) {
                     giveUpHtml = `<button class="give-up-btn btn-red" onclick="giveUp()">Give up</button>`;
                 }
-                
                 pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(You)' : ''} ${giveUpHtml}</h3>`;
 
-                const cardsContainer = document.createElement('div');
-                cardsContainer.className = 'my-cards-container';
-
-                const bufferWrapper = document.createElement('div');
-                bufferWrapper.className = 'buffer-wrapper';
+                const cardsContainer = document.createElement('div'); cardsContainer.className = 'my-cards-container';
+                const bufferWrapper = document.createElement('div'); bufferWrapper.className = 'buffer-wrapper';
                 let bw = roomBufferSize === 3 ? 164 : 113;
-                bufferWrapper.style.flex = `0 0 ${bw}px`;
-                bufferWrapper.style.minWidth = `${bw}px`;
+                bufferWrapper.style.flex = `0 0 ${bw}px`; bufferWrapper.style.minWidth = `${bw}px`;
                 
-                const bufferSection = document.createElement('div');
-                bufferSection.className = 'player-section buffer-section';
-                
+                const bufferSection = document.createElement('div'); bufferSection.className = 'player-section buffer-section';
                 let bufferTitle = `<h4 class="playable-title-mobile">Playable cards</h4>`;
                 bufferSection.innerHTML = bufferTitle;
                 
-                let bufferCardsDiv = document.createElement('div');
-                bufferCardsDiv.className = 'buffer-cards-div';
+                let bufferCardsDiv = document.createElement('div'); bufferCardsDiv.className = 'buffer-cards-div';
 
                 p.buffer.forEach((card, bIndex) => {
                     let showFacedown = card.isFacedown;
                     if (gamePhase === 'setup' && isMe) showFacedown = false;
-
                     const cardEl = createCardDOM(card, showFacedown);
                     
                     if (isMe && pIndex === activeTurn && interactionState !== 'gameover' && gamePhase === 'playing') {
@@ -1674,30 +1445,21 @@
                         if (!p.mustReplace) {
                             if (card.isFacedown) {
                                 if (!isPenaltyState || interactionState === 'blocked') {
-                                    cardEl.classList.add('glow-yellow');
-                                    cardEl.classList.add('clickable');
+                                    cardEl.classList.add('glow-yellow'); cardEl.classList.add('clickable');
                                     if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
                                 }
                             } else {
                                 if (isPenaltyState) {
                                     if (!isCardToRevert) {
-                                        cardEl.classList.add('glow-red');
-                                        cardEl.classList.add('penalty-target', 'clickable');
+                                        cardEl.classList.add('glow-red'); cardEl.classList.add('penalty-target', 'clickable');
                                         cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
                                     }
                                 } else {
                                     if (isCardPlayable(card)) {
-                                        cardEl.classList.add('glow-green');
-                                        cardEl.classList.add('clickable'); 
-                                        
+                                        cardEl.classList.add('glow-green'); cardEl.classList.add('clickable'); 
                                         if (interactionState === 'normal') {
-                                            cardEl.classList.add('draggable');
-                                            cardEl.draggable = true;
-                                            cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
-                                            cardEl.ondragstart = (ev) => {
-                                                dragCard(ev, pIndex, bIndex);
-                                                setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); 
-                                            };
+                                            cardEl.classList.add('draggable'); cardEl.draggable = true; cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                                            cardEl.ondragstart = (ev) => { dragCard(ev, pIndex, bIndex); setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); };
                                             cardEl.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                                         }
                                     } else {
@@ -1710,50 +1472,32 @@
                     bufferCardsDiv.appendChild(cardEl);
                 });
                 
-                bufferSection.appendChild(bufferCardsDiv);
-                bufferWrapper.appendChild(bufferSection);
-                cardsContainer.appendChild(bufferWrapper);
+                bufferSection.appendChild(bufferCardsDiv); bufferWrapper.appendChild(bufferSection); cardsContainer.appendChild(bufferWrapper);
 
-                const handWrapper = document.createElement('div');
-                handWrapper.className = 'hand-wrapper';
-
-                const handSection = document.createElement('div');
-                handSection.className = 'player-section hand-section';
+                const handWrapper = document.createElement('div'); handWrapper.className = 'hand-wrapper';
+                const handSection = document.createElement('div'); handSection.className = 'player-section hand-section';
                 
-                let handTitle = isMe 
-                    ? `<h4 class="my-hand-title">Hand</h4>` 
-                    : `<h4 class="opponent-hand-title">Hand</h4><div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:24px; height:36px; vertical-align:middle; border-radius:3px; border:1px solid #333; margin-right:5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
+                let handTitle = isMe ? `<h4 class="my-hand-title">Hand</h4>` : `<h4 class="opponent-hand-title">Hand</h4><div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:24px; height:36px; vertical-align:middle; border-radius:3px; border:1px solid #333; margin-right:5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
                 handSection.innerHTML = handTitle;
                 
-                let handCardsDiv = document.createElement('div');
-                handCardsDiv.className = isMe ? 'my-hand-cards' : 'opponent-hand-cards';
+                let handCardsDiv = document.createElement('div'); handCardsDiv.className = isMe ? 'my-hand-cards' : 'opponent-hand-cards';
                 
                 p.hand.forEach((card, cIndex) => {
-                    const cardEl = createCardDOM(card, !isMe); 
-                    cardEl.classList.add('hand-card');
-                    
+                    const cardEl = createCardDOM(card, !isMe); cardEl.classList.add('hand-card');
                     let canClickHand = false;
                     if (isMe) {
                         if (gamePhase === 'setup' && !p.setupConfirmed && setupSelection.buffer.length < roomBufferSize) canClickHand = true;
                         if (gamePhase === 'playing' && pIndex === activeTurn && p.mustReplace && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) canClickHand = true; 
                     }
-                    
                     if (canClickHand) {
-                        cardEl.classList.add('clickable');
-                        if (p.mustReplace) cardEl.style.boxShadow = "0 0 10px #e67e22"; 
-                        
+                        cardEl.classList.add('clickable'); if (p.mustReplace) cardEl.style.boxShadow = "0 0 10px #e67e22"; 
                         cardEl.onclick = () => {
                             if (gamePhase === 'setup') {
-                                let c = setupSelection.hand.splice(cIndex, 1)[0];
-                                c.isFacedown = false;
-                                setupSelection.buffer.push(c);
-                                renderPlayers();
+                                let c = setupSelection.hand.splice(cIndex, 1)[0]; c.isFacedown = false; setupSelection.buffer.push(c); renderPlayers();
                             } else {
-                                if (interactionState === 'waiting') return;
-                                interactionState = 'waiting'; 
+                                if (interactionState === 'waiting') return; interactionState = 'waiting'; 
                                 socket.emit('fillBuffer', { roomName: myRoomName, playerId: myPlayerId, cardIndex: cIndex }, (res) => {
-                                    interactionState = 'normal'; 
-                                    if(!res.success) setStatus(res.msg);
+                                    interactionState = 'normal'; if(!res.success) setStatus(res.msg);
                                 });
                             }
                         };
@@ -1762,196 +1506,86 @@
                 });
 
                 if (p.hand.length === 0) handCardsDiv.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
-                handSection.appendChild(handCardsDiv);
-                handWrapper.appendChild(handSection);
-                cardsContainer.appendChild(handWrapper);
-
-                pDiv.appendChild(cardsContainer);
+                handSection.appendChild(handCardsDiv); handWrapper.appendChild(handSection); cardsContainer.appendChild(handWrapper); pDiv.appendChild(cardsContainer);
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
                     let confirmDisabled = setupSelection.buffer.length !== roomBufferSize ? 'disabled' : '';
                     let confirmColorClass = setupSelection.buffer.length === roomBufferSize ? 'btn-green' : '';
                     let confirmStyle = setupSelection.buffer.length !== roomBufferSize ? 'background: #7f8c8d;' : '';
-                    
-                    let setupControls = document.createElement('div');
-                    setupControls.className = 'setup-controls-mobile';
-                    setupControls.style.display = 'flex';
-                    setupControls.style.justifyContent = 'center';
-                    setupControls.style.alignItems = 'center';
-                    setupControls.style.gap = '15px';
-                    setupControls.style.height = '30px';
-                    setupControls.style.margin = '0';
-                    setupControls.style.padding = '0';
-                    
-                    setupControls.innerHTML = `
-                        <button style="background:transparent; color:#ecf0f1; border:none; box-shadow:none; font-size:24px; cursor:pointer; padding: 0; line-height: 1;" onclick="undoSetup()" title="Undo selection">↺</button>
-                        <button class="${confirmColorClass} global-btn" style="${confirmStyle} border: none; font-size: 13px; font-weight: bold; margin: 0; padding: 6px 12px; border-radius: 5px; transition: background 0.3s; cursor: pointer;" onclick="confirmSetup()" ${confirmDisabled}>Confirm cards</button>
-                    `;
+                    let setupControls = document.createElement('div'); setupControls.className = 'setup-controls-mobile';
+                    setupControls.style.display = 'flex'; setupControls.style.justifyContent = 'center'; setupControls.style.alignItems = 'center'; setupControls.style.gap = '15px'; setupControls.style.height = '30px'; setupControls.style.margin = '0'; setupControls.style.padding = '0';
+                    setupControls.innerHTML = `<button style="background:transparent; color:#ecf0f1; border:none; box-shadow:none; font-size:24px; cursor:pointer; padding: 0; line-height: 1;" onclick="undoSetup()" title="Undo selection">↺</button><button class="${confirmColorClass} global-btn" style="${confirmStyle} border: none; font-size: 13px; font-weight: bold; margin: 0; padding: 6px 12px; border-radius: 5px; transition: background 0.3s; cursor: pointer;" onclick="confirmSetup()" ${confirmDisabled}>Confirm cards</button>`;
                     pDiv.appendChild(setupControls);
                 }
                 
-                if (isMe) {
-                    myContainer.appendChild(pDiv);
-                } else {
-                    opponentsContainer.appendChild(pDiv);
-                }
+                if (isMe) myContainer.appendChild(pDiv); else opponentsContainer.appendChild(pDiv);
             });
-
             updateMainStatus();
         }
 
         /* === CONFETTI ENGINE === */
         function fireConfetti() {
             if (!confettiCanvas) {
-                confettiCanvas = document.createElement('canvas');
-                confettiCanvas.style.position = 'fixed';
-                confettiCanvas.style.top = '0';
-                confettiCanvas.style.left = '0';
-                confettiCanvas.style.width = '100vw';
-                confettiCanvas.style.height = '100vh';
-                confettiCanvas.style.pointerEvents = 'none';
-                confettiCanvas.style.zIndex = '9999';
-                document.body.appendChild(confettiCanvas);
-                confettiCtx = confettiCanvas.getContext('2d');
+                confettiCanvas = document.createElement('canvas'); confettiCanvas.style.position = 'fixed'; confettiCanvas.style.top = '0'; confettiCanvas.style.left = '0'; confettiCanvas.style.width = '100vw'; confettiCanvas.style.height = '100vh'; confettiCanvas.style.pointerEvents = 'none'; confettiCanvas.style.zIndex = '9999'; document.body.appendChild(confettiCanvas); confettiCtx = confettiCanvas.getContext('2d');
             }
-            confettiCanvas.width = window.innerWidth;
-            confettiCanvas.height = window.innerHeight;
-            
-            confettiParticles = [];
+            confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; confettiParticles = [];
             for(let i=0; i<150; i++) {
-                confettiParticles.push({
-                    x: Math.random() * confettiCanvas.width,
-                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
-                    r: Math.random() * 6 + 4,
-                    dx: Math.random() * 4 - 2,
-                    dy: Math.random() * 5 + 2,
-                    color: `hsl(${Math.random()*360}, 100%, 50%)`
-                });
+                confettiParticles.push({ x: Math.random() * confettiCanvas.width, y: Math.random() * confettiCanvas.height - confettiCanvas.height, r: Math.random() * 6 + 4, dx: Math.random() * 4 - 2, dy: Math.random() * 5 + 2, color: `hsl(${Math.random()*360}, 100%, 50%)` });
             }
             drawConfetti();
         }
 
         function drawConfetti() {
             if (gamePhase !== 'gameover') return; 
-            requestAnimationFrame(drawConfetti);
-            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-            
+            requestAnimationFrame(drawConfetti); confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
             confettiParticles.forEach(p => {
-                p.y += p.dy;
-                p.x += p.dx;
-                if (p.y > confettiCanvas.height) p.y = -10; 
-                confettiCtx.beginPath();
-                confettiCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                confettiCtx.fillStyle = p.color;
-                confettiCtx.fill();
+                p.y += p.dy; p.x += p.dx; if (p.y > confettiCanvas.height) p.y = -10; 
+                confettiCtx.beginPath(); confettiCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2); confettiCtx.fillStyle = p.color; confettiCtx.fill();
             });
         }
 
         socket.on('gameState', (data) => {
-            document.getElementById('lobbyStep1').style.display = 'none';
-            document.getElementById('createView').style.display = 'none';
-            document.getElementById('joinView').style.display = 'none';
-            document.getElementById('waitingView').style.display = 'none';
-            document.getElementById('gameView').style.display = 'block';
-            document.getElementById('leaveBtn').style.display = 'block';
-            
-            document.getElementById('turnCounter').style.display = 'block';
-            document.getElementById('turnCountNumber').innerText = data.totalTurns || 0;
-
-            currentBoardState = data.boardState;
-            localPlayers = data.players;
-            activeTurn = data.currentTurn;
-            gamePhase = data.gamePhase;
-            cardsPlayedCount = data.cardsPlayedCount;
-            previousCardsPlayedCount = cardsPlayedCount;
-            roomBufferSize = data.bufferSize || 3;
-            totalTurns = data.totalTurns || 0;
-            
-            interactionState = gamePhase === 'gameover' ? 'gameover' : 'normal';
-            cardToRevert = null;
-            setupInitialized = false;
-            selectedJokerInfo = null;
-            renderPlayers(); 
-            renderBoard();
+            document.getElementById('lobbyStep1').style.display = 'none'; document.getElementById('createView').style.display = 'none'; document.getElementById('joinView').style.display = 'none'; document.getElementById('waitingView').style.display = 'none'; document.getElementById('gameView').style.display = 'block'; document.getElementById('leaveBtn').style.display = 'block'; document.getElementById('turnCounter').style.display = 'block'; document.getElementById('turnCountNumber').innerText = data.totalTurns || 0;
+            currentBoardState = data.boardState; localPlayers = data.players; activeTurn = data.currentTurn; gamePhase = data.gamePhase; cardsPlayedCount = data.cardsPlayedCount; previousCardsPlayedCount = cardsPlayedCount; roomBufferSize = data.bufferSize || 3; totalTurns = data.totalTurns || 0; interactionState = gamePhase === 'gameover' ? 'gameover' : 'normal'; cardToRevert = null; setupInitialized = false; selectedJokerInfo = null;
+            renderPlayers(); renderBoard();
         });
 
         socket.on('boardUpdated', (data) => {
-            currentBoardState = data.boardState;
-            cardsPlayedCount = data.cardsPlayedCount;
-            
-            roomLastAction = data.lastAction;
-            roomLastActionTime = data.lastActionTime;
-            
+            currentBoardState = data.boardState; cardsPlayedCount = data.cardsPlayedCount; roomLastAction = data.lastAction; roomLastActionTime = data.lastActionTime;
             if (roomLastAction && roomLastActionTime > previousActionTime) {
-                if (roomLastAction.type === 'play' && roomLastAction.playerName) {
-                    showTemporaryTaunt(`${roomLastAction.playerName} played ${getCardName(roomLastAction.card.value)}${roomLastAction.card.suit}`);
-                } else if (roomLastAction.type === 'joker' && roomLastAction.playerName) {
-                    showTemporaryTaunt(`${roomLastAction.playerName} moved a joker!`);
-                }
+                if (roomLastAction.type === 'play' && roomLastAction.playerName) showTemporaryTaunt(`${roomLastAction.playerName} played ${getCardName(roomLastAction.card.value)}${roomLastAction.card.suit}`);
+                else if (roomLastAction.type === 'joker' && roomLastAction.playerName) showTemporaryTaunt(`${roomLastAction.playerName} moved a joker!`);
                 previousActionTime = roomLastActionTime;
             }
-
             if (cardsPlayedCount > previousCardsPlayedCount && cardsPlayedCount <= 3) {
-                let tauntMsg = placementTaunts[Math.floor(Math.random() * placementTaunts.length)];
-                showTemporaryTaunt(tauntMsg);
+                let tauntMsg = placementTaunts[Math.floor(Math.random() * placementTaunts.length)]; showTemporaryTaunt(tauntMsg);
             }
-            previousCardsPlayedCount = cardsPlayedCount;
-            
-            selectedJokerInfo = null; 
-            renderPlayers();
-            renderBoard();
+            previousCardsPlayedCount = cardsPlayedCount; selectedJokerInfo = null; renderPlayers(); renderBoard();
         });
 
         socket.on('gameWon', (data) => {
-            gamePhase = 'gameover';
-            interactionState = 'gameover';
-            document.title = "House of Jokers";
-            document.getElementById('winMsg').innerText = data.msg;
-            document.getElementById('winDialog').showModal();
-            fireConfetti();
-            localStorage.removeItem('hoj_roomName');
+            gamePhase = 'gameover'; interactionState = 'gameover'; document.title = "House of Jokers";
+            document.getElementById('winMsg').innerText = data.msg; document.getElementById('winDialog').showModal();
+            fireConfetti(); localStorage.removeItem('hoj_roomName');
         });
 
         socket.on('gameEnded', (data) => {
-            gamePhase = 'gameover';
-            interactionState = 'gameover';
-            document.title = "House of Jokers";
-            document.getElementById('loseMsg').innerText = data.msg;
-            document.getElementById('loseDialog').showModal();
-            renderPlayers();
-            renderBoard();
-            localStorage.removeItem('hoj_roomName');
+            gamePhase = 'gameover'; interactionState = 'gameover'; document.title = "House of Jokers";
+            document.getElementById('loseMsg').innerText = data.msg; document.getElementById('loseDialog').showModal();
+            renderPlayers(); renderBoard(); localStorage.removeItem('hoj_roomName');
         });
 
         socket.on('updatePlayers', (data) => {
             if (interactionState === 'gameover') return;
-            
             let turnChanged = (activeTurn !== data.currentTurn);
-            localPlayers = data.players;
-            activeTurn = data.currentTurn;
-            gamePhase = data.gamePhase;
-            cardsPlayedCount = data.cardsPlayedCount;
-            previousCardsPlayedCount = cardsPlayedCount;
-            totalTurns = data.totalTurns || 0;
-            
+            localPlayers = data.players; activeTurn = data.currentTurn; gamePhase = data.gamePhase; cardsPlayedCount = data.cardsPlayedCount; previousCardsPlayedCount = cardsPlayedCount; totalTurns = data.totalTurns || 0;
             document.getElementById('turnCountNumber').innerText = totalTurns;
-            
-            if (turnChanged || interactionState === 'waiting') {
-                interactionState = 'normal';
-                cardToRevert = null;
-            }
-
+            if (turnChanged || interactionState === 'waiting') { interactionState = 'normal'; cardToRevert = null; }
             if (turnChanged && cardsPlayedCount > 3 && gamePhase === 'playing') {
-                if (Math.random() < 0.15) {
-                    let tauntMsg = randomTaunts[Math.floor(Math.random() * randomTaunts.length)];
-                    showTemporaryTaunt(tauntMsg);
-                }
+                if (Math.random() < 0.15) { let tauntMsg = randomTaunts[Math.floor(Math.random() * randomTaunts.length)]; showTemporaryTaunt(tauntMsg); }
             }
-
-            renderPlayers();
-            renderBoard();
+            renderPlayers(); renderBoard();
         });
-
     </script>
 </body>
 </html>
