@@ -50,7 +50,14 @@ const roomSchema = new mongoose.Schema({
     boardState: Object,
     lastAction: Object,
     lastActionTime: Number,
-    players: Array 
+    players: Array,
+    lastUpdated: { type: Number, default: Date.now } // För städfunktionen
+});
+
+// Uppdaterar tidsstämpeln automatiskt varje gång rummet sparas
+roomSchema.pre('save', function(next) {
+    this.lastUpdated = Date.now();
+    next();
 });
 
 const Room = mongoose.model('Room', roomSchema);
@@ -136,7 +143,6 @@ io.on('connection', (socket) => {
         let existingRoom = await Room.findOne({ roomName: roomName });
         
         if (existingRoom) {
-            // Rensa upp ett eventuellt "zombie-rum" utan spelare så namnet blir ledigt
             if (existingRoom.players.length === 0) {
                 await Room.deleteOne({ roomName: roomName });
             } else {
@@ -514,7 +520,6 @@ io.on('connection', (socket) => {
                     io.to(room.roomName).emit('roomUpdate', room);
                 }
 
-                // OM INGA SPELARE KVAR, RADERA RUMMET
                 if (room.players.length === 0) {
                     await Room.deleteOne({ roomName: room.roomName });
                 } else {
@@ -529,6 +534,21 @@ io.on('connection', (socket) => {
         console.log('A device disconnected:', socket.id);
     });
 });
+
+// ==========================================
+// 6. VAKTMÄSTAREN - Städar gamla rum (72 timmar)
+// ==========================================
+setInterval(async () => {
+    const expireTime = Date.now() - (72 * 60 * 60 * 1000); 
+    try {
+        const result = await Room.deleteMany({ lastUpdated: { $lt: expireTime } });
+        if (result.deletedCount > 0) {
+            console.log(`🧹 Vaktmästaren städade precis bort ${result.deletedCount} inaktiva rum (äldre än 72h).`);
+        }
+    } catch (err) {
+        console.error("Fel vid städning av rum:", err);
+    }
+}, 60 * 60 * 1000); 
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
