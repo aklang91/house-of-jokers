@@ -478,10 +478,10 @@ io.on('connection', (socket) => {
         io.to(room.roomName).emit('boardUpdated', room);
         io.to(room.roomName).emit('updatePlayers', room);
 
+        // NYTT: Skicka ALLTID push. Telefonens Service Worker får avgöra om skärmen är tänd eller släckt!
         let nextPlayer = room.players[room.currentTurn];
-        let isOnline = Array.from(io.sockets.sockets.values()).some(s => s.playerId === nextPlayer.id);
 
-        if (!isOnline && nextPlayer.pushSubscription) {
+        if (nextPlayer.pushSubscription) {
             try {
                 await webpush.sendNotification(nextPlayer.pushSubscription, JSON.stringify({
                     title: 'House of Jokers',
