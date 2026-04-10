@@ -17,7 +17,7 @@ app.use(express.static('public'));
 // 1. KOPPLA TILL MONGODB
 // Byt ut denna sträng mot din egen från Atlas!
 // ==========================================
-const MONGODB_URI = "mongodb+srv://admin:bOVMjTPJxWA6mD48@houseofjokers.xn3f2qb.mongodb.net/?appName=houseofjokers";
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Connected to MongoDB!'))
