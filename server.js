@@ -35,6 +35,18 @@ webpush.setVapidDetails(
     process.env.VAPID_PRIVATE_KEY
 );
 
+// Hjälpfunktion för att enkelt skicka push-notiser
+async function sendPush(player, title, body) {
+    if (player && player.pushSubscription) {
+        try {
+            await webpush.sendNotification(player.pushSubscription, JSON.stringify({ title, body }));
+            console.log(`Push skickad till ${player.name}: ${body}`);
+        } catch (err) {
+            console.error(`Fel vid push till ${player.name}:`, err);
+        }
+    }
+}
+
 // ==========================================
 // 3. DATABAS-STRUKTUR (SCHEMA)
 // ==========================================
@@ -193,6 +205,12 @@ io.on('connection', (socket) => {
         socket.playerId = playerId;
         callback({ success: true });
         io.to(roomName).emit('roomUpdate', room);
+
+        // NOTIS PÅ JOIN: Skicka push till Host (Skaparen av rummet)
+        let hostPlayer = room.players.find(p => p.id === room.hostId);
+        if (hostPlayer && hostPlayer.id !== playerId) {
+            sendPush(hostPlayer, 'House of Jokers', `${playerName} just joined your room!`);
+        }
     });
 
     // --- START ROUND ---
@@ -221,6 +239,13 @@ io.on('connection', (socket) => {
             room.markModified('players');
             await room.save();
             io.to(data.roomName).emit('gameState', room);
+
+            // NOTIS PÅ START: Skicka push till alla spelare förutom Host
+            room.players.forEach(p => {
+                if (p.id !== room.hostId) {
+                    sendPush(p, 'House of Jokers', `The game has started in ${room.roomName}! Hurry up and pick your playable cards.`);
+                }
+            });
         }
     });
 
@@ -333,6 +358,9 @@ io.on('connection', (socket) => {
         room.gamePhase = 'gameover';
         await room.save();
         io.to(data.roomName).emit('gameEnded', { msg: data.msg });
+
+        // NOTIS PÅ GAME OVER: Skicka till alla
+        room.players.forEach(p => sendPush(p, 'House of Jokers', `Game Over! ${data.msg}`));
     });
 
     // --- LEAVE GAME ---
@@ -391,6 +419,10 @@ io.on('connection', (socket) => {
                 await room.save();
                 io.to(roomName).emit('boardUpdated', room);
                 io.to(roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
+                
+                // NOTIS PÅ VINST: Skicka till alla
+                room.players.forEach(p => sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`));
+
                 return callback({ success: true });
             }
 
@@ -478,20 +510,9 @@ io.on('connection', (socket) => {
         io.to(room.roomName).emit('boardUpdated', room);
         io.to(room.roomName).emit('updatePlayers', room);
 
-        // NYTT: Skicka ALLTID push. Telefonens Service Worker får avgöra om skärmen är tänd eller släckt!
+        // NOTIS PÅ NÄSTA TUR
         let nextPlayer = room.players[room.currentTurn];
-
-        if (nextPlayer.pushSubscription) {
-            try {
-                await webpush.sendNotification(nextPlayer.pushSubscription, JSON.stringify({
-                    title: 'House of Jokers',
-                    body: `Your turn! The board has changed in ${room.roomName}.`
-                }));
-                console.log(`Push sent to ${nextPlayer.name}`);
-            } catch (err) {
-                console.error("Error sending push notification", err);
-            }
-        }
+        sendPush(nextPlayer, 'House of Jokers', `Your turn! The board has changed in ${room.roomName}.`);
     }
 
     // --- HANDLE PLAYER LEAVE (Fixad för databas-radering) ---
@@ -511,9 +532,17 @@ io.on('connection', (socket) => {
         if (playerIndex !== -1) { 
             let player = room.players[playerIndex];
             
-            // Spelet är i full gång och någon hoppar av. Radera rummet direkt.
+            // Spelet är i full gång och någon hoppar av.
             if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
                 io.to(room.roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
+                
+                // NOTIS PÅ LEAVE: Varna de andra spelarna
+                room.players.forEach(p => {
+                    if (p.id !== player.id) {
+                        sendPush(p, 'House of Jokers', `Game Over! ${player.name} abandoned the game. You lost!`);
+                    }
+                });
+
                 await Room.deleteOne({ roomName: room.roomName }); 
                 return;
             }
