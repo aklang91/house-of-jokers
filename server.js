@@ -18,21 +18,26 @@ const io = new Server(server, {
 
 app.use(express.static('public'));
 
+// ==========================================
 // 1. KOPPLA TILL MONGODB
+// ==========================================
 const MONGODB_URI = process.env.MONGODB_URI; 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Connected to MongoDB!'))
     .catch(err => console.error('MongoDB connection error:', err));
 
+// ==========================================
 // 2. STÄLL IN WEB PUSH
-// Vi använder en dummy-email, detta krävs av web-push protokollet
+// ==========================================
 webpush.setVapidDetails(
     'mailto:test@houseofjokers.com',
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
 );
 
+// ==========================================
 // 3. DATABAS-STRUKTUR (SCHEMA)
+// ==========================================
 const roomSchema = new mongoose.Schema({
     roomName: { type: String, unique: true },
     hostId: String, 
@@ -50,7 +55,9 @@ const roomSchema = new mongoose.Schema({
 
 const Room = mongoose.model('Room', roomSchema);
 
+// ==========================================
 // 4. HJÄLPFUNKTIONER
+// ==========================================
 function createDeck() {
     const suits = ['♠', '♥', '♣', '♦']; 
     const deck = [];
@@ -70,7 +77,9 @@ function shuffle(array) {
 
 const disconnectedPlayers = {};
 
+// ==========================================
 // 5. SOCKET.IO - SPELLOGIK
+// ==========================================
 io.on('connection', (socket) => {
     console.log('A device connected:', socket.id);
     
@@ -83,7 +92,7 @@ io.on('connection', (socket) => {
     
     socket.emit('yourId', socket.id);
 
-    // NYTT: Spara Push-prenumeration i databasen
+    // --- PUSH SUBSCRIPTION ---
     socket.on('savePushSubscription', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if (!room) return;
@@ -93,10 +102,10 @@ io.on('connection', (socket) => {
             room.players[pIndex].pushSubscription = data.subscription;
             room.markModified('players');
             await room.save();
-            console.log(`Push subscription saved for ${room.players[pIndex].name}`);
         }
     });
 
+    // --- REJOIN GAME ---
     socket.on('rejoinGame', async (data, callback) => {
         try {
             let room = await Room.findOne({ roomName: data.roomName });
@@ -106,20 +115,33 @@ io.on('connection', (socket) => {
             if (!player) return callback({ success: false });
 
             socket.join(room.roomName);
-            socket.playerId = data.playerId; // Knyt socketen till spelarens ID
-            callback({ success: true });
-            socket.emit('gameState', room); 
+            socket.playerId = data.playerId; 
+            
+            callback({ success: true, gamePhase: room.gamePhase }); 
+            
+            if (room.gamePhase === 'waiting') {
+                socket.emit('roomUpdate', room);
+            } else {
+                socket.emit('gameState', room); 
+            }
         } catch(e) {
             callback({ success: false });
         }
     });
 
+    // --- CREATE GAME ---
     socket.on('createGame', async (data, callback) => {
         const { playerId, playerName, roomName, maxPlayers, difficulty } = data;
         
         let existingRoom = await Room.findOne({ roomName: roomName });
+        
         if (existingRoom) {
-            return callback({ success: false, msg: "A room with that name already exists!" });
+            // Rensa upp ett eventuellt "zombie-rum" utan spelare så namnet blir ledigt
+            if (existingRoom.players.length === 0) {
+                await Room.deleteOne({ roomName: roomName });
+            } else {
+                return callback({ success: false, msg: "A room with that name already exists!" });
+            }
         }
 
         let bufferSize = parseInt(difficulty) || 3;
@@ -129,7 +151,13 @@ io.on('connection', (socket) => {
             hostId: playerId, 
             maxPlayers: parseInt(maxPlayers),
             bufferSize: bufferSize,
-            players: [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false }]
+            players: [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false }],
+            boardState: {
+                '♠': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
+                '♥': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
+                '♦': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
+                '♣': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false }
+            }
         });
 
         await newRoom.save();
@@ -139,6 +167,7 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('roomUpdate', newRoom);
     });
 
+    // --- JOIN GAME ---
     socket.on('joinGame', async (data, callback) => {
         const { playerId, playerName, roomName } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -159,6 +188,7 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('roomUpdate', room);
     });
 
+    // --- START ROUND ---
     socket.on('startRound', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if (room && room.hostId === data.playerId && room.players.length === room.maxPlayers) {
@@ -187,6 +217,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- CONFIRM SETUP ---
     socket.on('confirmSetup', async (data, callback) => {
         const { roomName, playerId, buffer, hand } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -214,6 +245,7 @@ io.on('connection', (socket) => {
         callback({ success: true });
     });
 
+    // --- FILL BUFFER ---
     socket.on('fillBuffer', async (data, callback) => {
         const { roomName, playerId, cardIndex } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -243,6 +275,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- FLIP CARD ---
     socket.on('flipCard', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -255,6 +288,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- FLIP CARD AND REVERT ---
     socket.on('flipCardAndRevert', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -271,6 +305,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- REVEAL CARD ---
     socket.on('revealCard', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -284,6 +319,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- GAME OVER ---
     socket.on('gameOver', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -292,6 +328,7 @@ io.on('connection', (socket) => {
         io.to(data.roomName).emit('gameEnded', { msg: data.msg });
     });
 
+    // --- LEAVE GAME ---
     socket.on('leaveGame', async (data) => {
         if (disconnectedPlayers[socket.id]) {
             clearTimeout(disconnectedPlayers[socket.id]);
@@ -300,6 +337,7 @@ io.on('connection', (socket) => {
         handlePlayerLeave(socket.id, data.roomName);
     });
 
+    // --- PLAY CARD ---
     socket.on('playCard', async (data, callback) => {
         const { roomName, playerId, pIndex, bIndex, card, toSuit, toSide } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -372,6 +410,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- MOVE JOKER ---
     socket.on('moveJoker', async (data, callback) => {
         const { roomName, playerId, pIndex, fromSuit, fromSide, toSuit, toSide } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -403,6 +442,7 @@ io.on('connection', (socket) => {
         callback({ success: true });
     });
 
+    // --- NEXT TURN OCH PUSH-NOTISER ---
     async function nextTurn(room) {
         room.players.forEach(p => p.buffer.forEach(c => {
             if (c.revealedThisTurn) {
@@ -431,10 +471,7 @@ io.on('connection', (socket) => {
         io.to(room.roomName).emit('boardUpdated', room);
         io.to(room.roomName).emit('updatePlayers', room);
 
-        // NYTT: Skicka Push-notis om nästa spelare INTE är online!
         let nextPlayer = room.players[room.currentTurn];
-        
-        // Kolla om spelaren har en aktiv socket ansluten
         let isOnline = Array.from(io.sockets.sockets.values()).some(s => s.playerId === nextPlayer.id);
 
         if (!isOnline && nextPlayer.pushSubscription) {
@@ -450,22 +487,19 @@ io.on('connection', (socket) => {
         }
     }
 
+    // --- HANDLE PLAYER LEAVE ---
     async function handlePlayerLeave(socketId, specificRoom = null) {
-        // En spelare väljer aktivt att lämna
         let rooms = specificRoom ? [await Room.findOne({ roomName: specificRoom })] : await Room.find({});
         
         for (let room of rooms) {
             if (!room) continue;
 
-            // Vi kan inte lita på socketId längre när vi kastar ut manuellt, men om vi klickar "Leave round"
-            // så kommer socketId (eller data.playerId) matchas
-            // Eftersom denna kallas från disconnect använder vi array.find
             let socketObj = Array.from(io.sockets.sockets.values()).find(s => s.id === socketId);
             let pIdToFind = socketObj ? socketObj.playerId : null;
             
             let playerIndex = room.players.findIndex(p => p.id === pIdToFind);
             
-            if (playerIndex !== -1 && specificRoom) { // Bara avbryt om de klickade "Leave" (specificRoom skickades)
+            if (playerIndex !== -1 && specificRoom) { 
                 let player = room.players[playerIndex];
                 
                 if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
@@ -480,6 +514,7 @@ io.on('connection', (socket) => {
                     io.to(room.roomName).emit('roomUpdate', room);
                 }
 
+                // OM INGA SPELARE KVAR, RADERA RUMMET
                 if (room.players.length === 0) {
                     await Room.deleteOne({ roomName: room.roomName });
                 } else {
