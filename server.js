@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
+const webpush = require('web-push');
+console.log('--- MINA VAPID NYCKLAR ---', webpush.generateVAPIDKeys());
 
 const app = express();
 const server = http.createServer(app);
