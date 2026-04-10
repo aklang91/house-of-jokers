@@ -142,8 +142,9 @@ io.on('connection', (socket) => {
         
         let existingRoom = await Room.findOne({ roomName: roomName });
         
+        // FIX: Om rummet redan finns, men är tomt ELLER gameover, radera det och skriv över!
         if (existingRoom) {
-            if (existingRoom.players.length === 0) {
+            if (existingRoom.players.length === 0 || existingRoom.gamePhase === 'gameover') {
                 await Room.deleteOne({ roomName: roomName });
             } else {
                 return callback({ success: false, msg: "A room with that name already exists!" });
@@ -340,7 +341,7 @@ io.on('connection', (socket) => {
             clearTimeout(disconnectedPlayers[socket.id]);
             delete disconnectedPlayers[socket.id];
         }
-        handlePlayerLeave(socket.id, data.roomName);
+        await handlePlayerLeave(socket.id, data.roomName, data.playerId);
     });
 
     // --- PLAY CARD ---
@@ -493,39 +494,41 @@ io.on('connection', (socket) => {
         }
     }
 
-    // --- HANDLE PLAYER LEAVE ---
-    async function handlePlayerLeave(socketId, specificRoom = null) {
-        let rooms = specificRoom ? [await Room.findOne({ roomName: specificRoom })] : await Room.find({});
-        
-        for (let room of rooms) {
-            if (!room) continue;
+    // --- HANDLE PLAYER LEAVE (Fixad för databas-radering) ---
+    async function handlePlayerLeave(socketId, specificRoom = null, explicitPlayerId = null) {
+        let room = await Room.findOne({ roomName: specificRoom });
+        if (!room) return;
 
+        let pIdToFind = explicitPlayerId;
+        if (!pIdToFind) {
             let socketObj = Array.from(io.sockets.sockets.values()).find(s => s.id === socketId);
-            let pIdToFind = socketObj ? socketObj.playerId : null;
-            
-            let playerIndex = room.players.findIndex(p => p.id === pIdToFind);
-            
-            if (playerIndex !== -1 && specificRoom) { 
-                let player = room.players[playerIndex];
-                
-                if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
-                    room.gamePhase = 'gameover';
-                    io.to(room.roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
-                }
-                
-                room.players.splice(playerIndex, 1);
+            pIdToFind = socketObj ? socketObj.playerId : null;
+        }
+        
+        if (!pIdToFind) return;
 
-                if (room.gamePhase === 'waiting' && room.players.length > 0) {
-                    if (room.hostId === pIdToFind) room.hostId = room.players[0].id;
-                    io.to(room.roomName).emit('roomUpdate', room);
-                }
+        let playerIndex = room.players.findIndex(p => p.id === pIdToFind);
+        if (playerIndex !== -1) { 
+            let player = room.players[playerIndex];
+            
+            // Spelet är i full gång och någon hoppar av. Radera rummet direkt.
+            if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
+                io.to(room.roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
+                await Room.deleteOne({ roomName: room.roomName }); 
+                return;
+            }
+            
+            // Om de hoppar av i lobbyn, eller om spelet REDAN är gameover
+            room.players.splice(playerIndex, 1);
 
-                if (room.players.length === 0) {
-                    await Room.deleteOne({ roomName: room.roomName });
-                } else {
-                    room.markModified('players');
-                    await room.save();
-                }
+            if (room.players.length === 0 || room.gamePhase === 'gameover') {
+                // Om sista spelaren går ELLER om första spelaren lämnar post-game-skärmen
+                await Room.deleteOne({ roomName: room.roomName });
+            } else {
+                if (room.hostId === pIdToFind) room.hostId = room.players[0].id;
+                room.markModified('players');
+                await room.save();
+                io.to(room.roomName).emit('roomUpdate', room);
             }
         }
     }
