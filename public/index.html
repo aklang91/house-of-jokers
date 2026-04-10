@@ -798,6 +798,13 @@
     <script>
         const socket = io();
         
+        // HÄR ÄR DEN NYA LOKALA IDENTITETEN FÖR STEG 1
+        let myPlayerId = localStorage.getItem('hoj_playerId');
+        if (!myPlayerId) {
+            myPlayerId = 'player_' + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('hoj_playerId', myPlayerId);
+        }
+
         let mySocketId = "";
         let myRoomName = "";
         
@@ -847,7 +854,25 @@
         
         let confettiCanvas, confettiCtx, confettiParticles = [];
 
-        socket.on('yourId', (id) => { mySocketId = id; });
+        socket.on('yourId', (id) => { 
+            mySocketId = id; 
+            
+            // FÖRSÖK ÅTERANSLUTA TILL ETT SPEL DIREKT NÄR SIDAN LADDAS
+            let savedRoom = localStorage.getItem('hoj_roomName');
+            if (savedRoom) {
+                socket.emit('rejoinGame', { playerId: myPlayerId, roomName: savedRoom }, (res) => {
+                    if (res.success) {
+                        myRoomName = savedRoom;
+                    } else {
+                        // Spelet fanns inte (eller var avslutat)
+                        localStorage.removeItem('hoj_roomName');
+                        showStep1();
+                    }
+                });
+            } else {
+                showStep1();
+            }
+        });
 
         function toggleMute() {
             isMuted = !isMuted;
@@ -899,9 +924,11 @@
 
             if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Enter a room name!";
             
-            socket.emit('createGame', { playerName, roomName, maxPlayers, difficulty }, (res) => {
+            // SKICKAR MED MYPLAYERID
+            socket.emit('createGame', { playerId: myPlayerId, playerName, roomName, maxPlayers, difficulty }, (res) => {
                 if(res.success) {
                     myRoomName = roomName;
+                    localStorage.setItem('hoj_roomName', roomName);
                     document.getElementById('createView').style.display = 'none';
                     document.getElementById('waitingView').style.display = 'block';
                 } else {
@@ -917,9 +944,11 @@
 
             if(!roomName) return document.getElementById('lobbyErrorJoin').innerText = "Enter a room name!";
             
-            socket.emit('joinGame', { playerName, roomName }, (res) => {
+            // SKICKAR MED MYPLAYERID
+            socket.emit('joinGame', { playerId: myPlayerId, playerName, roomName }, (res) => {
                 if(res.success) {
                     myRoomName = roomName;
+                    localStorage.setItem('hoj_roomName', roomName);
                     document.getElementById('joinView').style.display = 'none';
                     document.getElementById('waitingView').style.display = 'block';
                 } else {
@@ -938,13 +967,15 @@
         }
 
         function startRound() {
-            socket.emit('startRound', { roomName: myRoomName });
+            socket.emit('startRound', { roomName: myRoomName, playerId: myPlayerId });
         }
 
         function returnToLobby() {
             if (myRoomName) {
-                socket.emit('leaveGame', { roomName: myRoomName });
+                socket.emit('leaveGame', { roomName: myRoomName, playerId: myPlayerId });
             }
+
+            localStorage.removeItem('hoj_roomName');
 
             document.getElementById('playerLeftDialog').close();
             document.getElementById('winDialog').close();
@@ -985,11 +1016,12 @@
             document.getElementById('waitingJoinMessages').innerHTML = playerListHTML;
 
             if (room.players.length === room.maxPlayers) {
-                if (room.host === mySocketId) {
+                // KOLLAR NU MOT MYPLAYERID
+                if (room.hostId === myPlayerId) {
                     document.getElementById('waitingText').style.display = 'none'; 
                     document.getElementById('startRoundBtn').style.display = 'inline-block';
                 } else {
-                    let hostPlayer = room.players.find(p => p.id === room.host);
+                    let hostPlayer = room.players.find(p => p.id === room.hostId);
                     let hostName = hostPlayer ? hostPlayer.name : 'the host';
                     document.getElementById('waitingText').style.display = 'block';
                     document.getElementById('waitingText').innerText = `Waiting for ${hostName} to start the round`;
@@ -1007,6 +1039,7 @@
         socket.on('playerLeft', (data) => {
             document.getElementById('playerLeftMsg').innerText = data.msg;
             document.getElementById('playerLeftDialog').showModal();
+            localStorage.removeItem('hoj_roomName');
         });
 
         function getCardName(value) {
@@ -1040,7 +1073,7 @@
             let isMyTurn = false;
             
             if (gamePhase === 'setup') {
-                let me = localPlayers.find(p => p.id === mySocketId);
+                let me = localPlayers.find(p => p.id === myPlayerId);
                 if (me && !me.setupConfirmed) {
                     let needed = roomBufferSize - setupSelection.buffer.length;
                     if (needed > 0) {
@@ -1057,7 +1090,7 @@
             let player = localPlayers[activeTurn];
             if (!player) return;
 
-            isMyTurn = (player.id === mySocketId);
+            isMyTurn = (player.id === myPlayerId);
 
             if (isMyTurn && gamePhase === 'playing') {
                 document.title = "Your turn - House of Jokers";
@@ -1144,9 +1177,9 @@
 
         function confirmSetup() {
             if (setupSelection.buffer.length !== roomBufferSize) return;
-            let pIndex = localPlayers.findIndex(p => p.id === mySocketId);
+            let pIndex = localPlayers.findIndex(p => p.id === myPlayerId);
             interactionState = 'waiting';
-            socket.emit('confirmSetup', { roomName: myRoomName, pIndex: pIndex, buffer: setupSelection.buffer, hand: setupSelection.hand }, (res) => {
+            socket.emit('confirmSetup', { roomName: myRoomName, playerId: myPlayerId, pIndex: pIndex, buffer: setupSelection.buffer, hand: setupSelection.hand }, (res) => {
                 interactionState = 'normal';
             });
         }
@@ -1155,7 +1188,7 @@
         function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
         
         function dragCard(ev, pIndex, bIndex) {
-            if (localPlayers[pIndex].id !== mySocketId) { ev.preventDefault(); return; }
+            if (localPlayers[pIndex].id !== myPlayerId) { ev.preventDefault(); return; }
             if (interactionState === 'waiting' || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) { ev.preventDefault(); return; }
             if (pIndex !== activeTurn) { ev.preventDefault(); return; }
             
@@ -1198,8 +1231,8 @@
 
             if (!hasJokerAtTarget) {
                 interactionState = 'waiting';
-                let pIndex = localPlayers.findIndex(p => p.id === mySocketId);
-                socket.emit('moveJoker', { roomName: myRoomName, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
+                let pIndex = localPlayers.findIndex(p => p.id === myPlayerId);
+                socket.emit('moveJoker', { roomName: myRoomName, playerId: myPlayerId, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
                     interactionState = 'normal';
                     selectedJokerInfo = null; 
                     if(!res.success) {
@@ -1246,8 +1279,8 @@
 
                 if (!hasJokerAtTarget) {
                     interactionState = 'waiting';
-                    let pIndex = localPlayers.findIndex(p => p.id === mySocketId);
-                    socket.emit('moveJoker', { roomName: myRoomName, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
+                    let pIndex = localPlayers.findIndex(p => p.id === myPlayerId);
+                    socket.emit('moveJoker', { roomName: myRoomName, playerId: myPlayerId, pIndex: pIndex, fromSuit, fromSide, toSuit, toSide }, (res) => {
                         interactionState = 'normal';
                         selectedJokerInfo = null;
                         if(!res.success) {
@@ -1269,7 +1302,7 @@
                 let card = localPlayers[pIndex].buffer[bIndex];
                 
                 interactionState = 'waiting'; 
-                socket.emit('playCard', { roomName: myRoomName, pIndex, bIndex, card, toSuit: toSuit, toSide: toSide }, (res) => {
+                socket.emit('playCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex, card, toSuit: toSuit, toSide: toSide }, (res) => {
                     interactionState = 'normal'; 
                     if (!res.success) {
                         let msg = res.msg;
@@ -1283,7 +1316,7 @@
         }
 
         function handleBufferClick(pIndex, bIndex, event) {
-            if (localPlayers[pIndex].id !== mySocketId) return;
+            if (localPlayers[pIndex].id !== myPlayerId) return;
             if (interactionState === 'waiting' || interactionState === 'gameover' || pIndex !== activeTurn || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) return;
             
             let card = localPlayers[pIndex].buffer[bIndex];
@@ -1291,10 +1324,10 @@
             if (event && event.currentTarget && event.currentTarget.classList.contains('penalty-target')) {
                 interactionState = 'waiting'; 
                 if (cardToRevert) {
-                    socket.emit('flipCardAndRevert', { roomName: myRoomName, pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
+                    socket.emit('flipCardAndRevert', { roomName: myRoomName, playerId: myPlayerId, pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
                     cardToRevert = null;
                 } else {
-                    socket.emit('flipCard', { roomName: myRoomName, pIndex, bIndex });
+                    socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
                 }
                 return;
             }
@@ -1305,7 +1338,7 @@
                 let targetSide = (card.value === state.max + 1) ? 'max' : 'min';
                 
                 interactionState = 'waiting'; 
-                socket.emit('playCard', { roomName: myRoomName, pIndex, bIndex, card, toSuit: targetSuit, toSide: targetSide }, (res) => {
+                socket.emit('playCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex, card, toSuit: targetSuit, toSide: targetSide }, (res) => {
                     interactionState = 'normal'; 
                     if (!res.success) setStatus("Something went wrong trying to auto-play that.");
                 });
@@ -1325,7 +1358,7 @@
                     document.getElementById('guessDialog').showModal();
                 } else if (interactionState === 'blocked') {
                     interactionState = 'waiting'; 
-                    socket.emit('flipCard', { roomName: myRoomName, pIndex, bIndex });
+                    socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
                 }
             }
         }
@@ -1339,7 +1372,7 @@
             const actualCard = pendingGuessCard.card;
             
             if (actualCard.suit === guessSuit && actualCard.value === guessValue) {
-                socket.emit('revealCard', { roomName: myRoomName, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex });
+                socket.emit('revealCard', { roomName: myRoomName, playerId: myPlayerId, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex });
                 pendingGuessCard.card.isFacedown = false; 
                 
                 let isPlayable = isCardPlayable(actualCard);
@@ -1418,7 +1451,7 @@
 
         function renderBoard() {
             let myTurnHasPlayable = false;
-            let isMyTurn = localPlayers[activeTurn] && localPlayers[activeTurn].id === mySocketId;
+            let isMyTurn = localPlayers[activeTurn] && localPlayers[activeTurn].id === myPlayerId;
             if (isMyTurn && gamePhase === 'playing' && !localPlayers[activeTurn].mustReplace) {
                 localPlayers[activeTurn].buffer.forEach(c => {
                     if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true;
@@ -1556,7 +1589,7 @@
             let player = localPlayers[activeTurn];
             let myTurnHasPlayable = false;
 
-            if (player && player.id === mySocketId && gamePhase === 'playing' && !player.mustReplace) {
+            if (player && player.id === myPlayerId && gamePhase === 'playing' && !player.mustReplace) {
                 player.buffer.forEach(c => {
                     if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true;
                 });
@@ -1571,7 +1604,7 @@
             opponentsContainer.innerHTML = '';
             myContainer.innerHTML = '';
 
-            let myIndex = localPlayers.findIndex(p => p.id === mySocketId);
+            let myIndex = localPlayers.findIndex(p => p.id === myPlayerId);
             if (myIndex === -1) myIndex = 0; 
             
             let orderedIndices = [];
@@ -1581,7 +1614,7 @@
 
             orderedIndices.forEach(pIndex => {
                 let p = localPlayers[pIndex];
-                let isMe = p.id === mySocketId;
+                let isMe = p.id === myPlayerId;
                 const pDiv = document.createElement('div');
                 
                 let isMyTurnOrSetup = (pIndex === activeTurn && gamePhase === 'playing') || (isMe && gamePhase === 'setup');
@@ -1718,7 +1751,7 @@
                             } else {
                                 if (interactionState === 'waiting') return;
                                 interactionState = 'waiting'; 
-                                socket.emit('fillBuffer', { roomName: myRoomName, pIndex, cardIndex: cIndex }, (res) => {
+                                socket.emit('fillBuffer', { roomName: myRoomName, playerId: myPlayerId, cardIndex: cIndex }, (res) => {
                                     interactionState = 'normal'; 
                                     if(!res.success) setStatus(res.msg);
                                 });
@@ -1876,6 +1909,7 @@
             document.getElementById('winMsg').innerText = data.msg;
             document.getElementById('winDialog').showModal();
             fireConfetti();
+            localStorage.removeItem('hoj_roomName');
         });
 
         socket.on('gameEnded', (data) => {
@@ -1886,6 +1920,7 @@
             document.getElementById('loseDialog').showModal();
             renderPlayers();
             renderBoard();
+            localStorage.removeItem('hoj_roomName');
         });
 
         socket.on('updatePlayers', (data) => {

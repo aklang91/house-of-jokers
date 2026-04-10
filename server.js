@@ -1,29 +1,56 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
 
-// AKTIVERA CONNECTION STATE RECOVERY & MER FÖRLÅTANDE PING TIMEOUTS
 const io = new Server(server, {
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, 
-        skipMiddlewares: true,
-    },
     pingTimeout: 60000, 
     pingInterval: 25000 
 });
 
 app.use(express.static('public'));
 
+// ==========================================
+// 1. KOPPLA TILL MONGODB
+// Byt ut denna sträng mot din egen från Atlas!
+// ==========================================
+const MONGODB_URI = "mongodb+srv://admin:bOVMjTPJxWA6mD48@houseofjokers.xn3f2qb.mongodb.net/?appName=houseofjokers";
+
+mongoose.connect(MONGODB_URI)
+    .then(() => console.log('Connected to MongoDB!'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+// ==========================================
+// 2. DATABAS-STRUKTUR (SCHEMA)
+// ==========================================
+const roomSchema = new mongoose.Schema({
+    roomName: { type: String, unique: true },
+    hostId: String, 
+    maxPlayers: Number,
+    bufferSize: Number,
+    totalTurns: { type: Number, default: 0 },
+    cardsPlayedCount: { type: Number, default: 0 },
+    currentTurn: { type: Number, default: -1 },
+    gamePhase: { type: String, default: 'waiting' },
+    boardState: Object,
+    lastAction: Object,
+    lastActionTime: Number,
+    players: Array 
+});
+
+const Room = mongoose.model('Room', roomSchema);
+
+// ==========================================
+// 3. HJÄLPFUNKTIONER
+// ==========================================
 function createDeck() {
     const suits = ['♠', '♥', '♣', '♦']; 
     const deck = [];
     suits.forEach(suit => {
-        for (let value = 1; value <= 13; value++) {
-            deck.push({ suit, value });
-        }
+        for (let value = 1; value <= 13; value++) { deck.push({ suit, value }); }
     });
     return deck;
 }
@@ -36,112 +63,118 @@ function shuffle(array) {
     return array;
 }
 
-const rooms = {};
-const disconnectedPlayers = {};
-
+// ==========================================
+// 4. SOCKET.IO - SPELLOGIK
+// ==========================================
 io.on('connection', (socket) => {
-    console.log('A player connected:', socket.id);
-    
-    if (socket.recovered) {
-        console.log('Player connection recovered:', socket.id);
-        if (disconnectedPlayers[socket.id]) {
-            clearTimeout(disconnectedPlayers[socket.id]);
-            delete disconnectedPlayers[socket.id];
-        }
-    }
-    
-    socket.emit('yourId', socket.id);
+    console.log('A device connected:', socket.id);
 
-    socket.on('createGame', (data, callback) => {
-        const { playerName, roomName, maxPlayers, difficulty } = data;
+    // NYTT: Återanslut till ett pågående spel asynkront
+    socket.on('rejoinGame', async (data, callback) => {
+        try {
+            let room = await Room.findOne({ roomName: data.roomName });
+            if (!room) return callback({ success: false });
+            
+            let player = room.players.find(p => p.id === data.playerId);
+            if (!player) return callback({ success: false });
+
+            socket.join(room.roomName);
+            callback({ success: true });
+            socket.emit('gameState', room); // Skicka senaste databas-läget direkt
+        } catch(e) {
+            callback({ success: false });
+        }
+    });
+
+    socket.on('createGame', async (data, callback) => {
+        const { playerId, playerName, roomName, maxPlayers, difficulty } = data;
         
-        if (rooms[roomName]) {
+        let existingRoom = await Room.findOne({ roomName: roomName });
+        if (existingRoom) {
             return callback({ success: false, msg: "A room with that name already exists!" });
         }
 
         let bufferSize = parseInt(difficulty) || 3;
 
-        rooms[roomName] = {
+        let newRoom = new Room({
             roomName: roomName,
-            host: socket.id, 
+            hostId: playerId, 
             maxPlayers: parseInt(maxPlayers),
             bufferSize: bufferSize,
-            totalTurns: 0,
-            players: [{ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false }],
+            players: [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false }],
             boardState: {
                 '♠': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
                 '♥': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
                 '♦': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
                 '♣': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false }
-            },
-            cardsPlayedCount: 0,
-            currentTurn: -1, 
-            gamePhase: 'waiting' 
-        };
+            }
+        });
 
+        await newRoom.save();
         socket.join(roomName);
         callback({ success: true });
-        io.to(roomName).emit('roomUpdate', rooms[roomName]);
+        io.to(roomName).emit('roomUpdate', newRoom);
     });
 
-    socket.on('joinGame', (data, callback) => {
-        const { playerName, roomName } = data;
-        const room = rooms[roomName];
+    socket.on('joinGame', async (data, callback) => {
+        const { playerId, playerName, roomName } = data;
+        let room = await Room.findOne({ roomName: roomName });
 
         if (!room) return callback({ success: false, msg: "The room doesn't exist!" });
         if (room.gamePhase !== 'waiting') return callback({ success: false, msg: "The game has already started!" });
         if (room.players.length >= room.maxPlayers) return callback({ success: false, msg: "The room is full!" });
+        if (room.players.some(p => p.id === playerId)) return callback({ success: false, msg: "You are already in this room!"});
 
-        room.players.push({ id: socket.id, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false });
+        room.players.push({ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false });
+        
+        room.markModified('players');
+        await room.save();
+        
         socket.join(roomName);
         callback({ success: true });
-
         io.to(roomName).emit('roomUpdate', room);
     });
 
-    socket.on('startRound', (data) => {
-        let room = rooms[data.roomName];
-        if (room && room.host === socket.id && room.players.length === room.maxPlayers) {
-            startGame(data.roomName);
+    socket.on('startRound', async (data) => {
+        let room = await Room.findOne({ roomName: data.roomName });
+        // Om den som trycker start är Host och rummet är fullt
+        if (room && room.hostId === data.playerId && room.players.length === room.maxPlayers) {
+            room.gamePhase = 'setup';
+            room.currentTurn = -1; 
+            
+            let deck = shuffle(createDeck()).filter(card => card.value !== 7); 
+            
+            let pIndex = 0;
+            while(deck.length > 0) {
+                room.players[pIndex].hand.push(deck.pop());
+                pIndex = (pIndex + 1) % room.players.length;
+            }
+
+            const suitOrder = { '♠': 1, '♥': 2, '♣': 3, '♦': 4 };
+            room.players.forEach(p => {
+                p.hand.sort((a, b) => {
+                    if (suitOrder[a.suit] !== suitOrder[b.suit]) return suitOrder[a.suit] - suitOrder[b.suit];
+                    return a.value - b.value;
+                });
+            });
+
+            room.markModified('players');
+            await room.save();
+            io.to(data.roomName).emit('gameState', room);
         }
     });
 
-    function startGame(roomName) {
-        let room = rooms[roomName];
-        room.gamePhase = 'setup';
-        room.currentTurn = -1; 
-        
-        let deck = shuffle(createDeck()).filter(card => card.value !== 7); 
-        
-        let pIndex = 0;
-        while(deck.length > 0) {
-            room.players[pIndex].hand.push(deck.pop());
-            pIndex = (pIndex + 1) % room.players.length;
-        }
-
-        const suitOrder = { '♠': 1, '♥': 2, '♣': 3, '♦': 4 };
-        room.players.forEach(p => {
-            p.hand.sort((a, b) => {
-                if (suitOrder[a.suit] !== suitOrder[b.suit]) {
-                    return suitOrder[a.suit] - suitOrder[b.suit];
-                }
-                return a.value - b.value;
-            });
-        });
-
-        io.to(roomName).emit('gameState', room);
-    }
-
-    socket.on('confirmSetup', (data, callback) => {
-        const { roomName, pIndex, buffer, hand } = data;
-        let room = rooms[roomName];
+    socket.on('confirmSetup', async (data, callback) => {
+        const { roomName, playerId, buffer, hand } = data;
+        let room = await Room.findOne({ roomName: roomName });
         if (!room) return;
-        let player = room.players[pIndex];
-        if (player.id !== socket.id) return;
+        
+        let pIndex = room.players.findIndex(p => p.id === playerId);
+        if (pIndex === -1) return;
 
-        player.buffer = buffer.map(c => ({...c, isFacedown: true}));
-        player.hand = hand;
-        player.setupConfirmed = true;
+        room.players[pIndex].buffer = buffer.map(c => ({...c, isFacedown: true}));
+        room.players[pIndex].hand = hand;
+        room.players[pIndex].setupConfirmed = true;
 
         if (room.players.every(p => p.setupConfirmed)) {
             room.gamePhase = 'playing';
@@ -152,17 +185,21 @@ io.on('connection', (socket) => {
             room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
         }
         
+        room.markModified('players');
+        await room.save();
         io.to(roomName).emit('updatePlayers', room);
         callback({ success: true });
     });
 
-    socket.on('fillBuffer', (data, callback) => {
-        const { roomName, pIndex, cardIndex } = data;
-        let room = rooms[roomName];
+    socket.on('fillBuffer', async (data, callback) => {
+        const { roomName, playerId, cardIndex } = data;
+        let room = await Room.findOne({ roomName: roomName });
         if(!room) return;
-        let player = room.players[pIndex];
         
-        if (player.id !== socket.id) return callback({ success: false, msg: "That is not you!" });
+        let pIndex = room.players.findIndex(p => p.id === playerId);
+        if (pIndex === -1 || pIndex !== room.currentTurn) return callback({ success: false, msg: "Not your turn!" });
+
+        let player = room.players[pIndex];
 
         if (player.mustReplace) {
             let card = player.hand.splice(cardIndex, 1)[0];
@@ -174,71 +211,98 @@ io.on('connection', (socket) => {
             player.mustReplace = false;
             delete player.replaceIndex; 
             
-            nextTurn(roomName);
+            room.markModified('players');
+            await room.save();
+            await nextTurn(room);
             callback({ success: true });
         } else {
             callback({ success: false, msg: "You cannot select more cards right now!" });
         }
     });
 
-    socket.on('flipCard', (data) => {
-        let room = rooms[data.roomName];
+    socket.on('flipCard', async (data) => {
+        let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
-        if(room.players[data.pIndex] && room.players[data.pIndex].id === socket.id) {
+        if(room.players[data.pIndex] && room.players[data.pIndex].id === data.playerId) {
             room.players[data.pIndex].buffer[data.bIndex].isFacedown = true;
-            nextTurn(data.roomName); 
+            room.markModified('players');
+            await room.save();
+            await nextTurn(room); 
         }
     });
 
-    socket.on('flipCardAndRevert', (data) => {
-        let room = rooms[data.roomName];
+    socket.on('flipCardAndRevert', async (data) => {
+        let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
         let player = room.players[data.pIndex];
-        if (player && player.id === socket.id) {
+        if (player && player.id === data.playerId) {
             if (player.buffer[data.penaltyIndex]) player.buffer[data.penaltyIndex].isFacedown = true;
             if (player.buffer[data.revertIndex]) {
                 player.buffer[data.revertIndex].isFacedown = true;
                 player.buffer[data.revertIndex].revealedThisTurn = false;
             }
-            nextTurn(data.roomName);
+            room.markModified('players');
+            await room.save();
+            await nextTurn(room);
         }
     });
 
-    socket.on('revealCard', (data) => {
-        let room = rooms[data.roomName];
+    socket.on('revealCard', async (data) => {
+        let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
-        if(room.players[data.pIndex] && room.players[data.pIndex].id === socket.id) {
+        if(room.players[data.pIndex] && room.players[data.pIndex].id === data.playerId) {
             room.players[data.pIndex].buffer[data.bIndex].isFacedown = false;
             room.players[data.pIndex].buffer[data.bIndex].revealedThisTurn = true; 
+            room.markModified('players');
+            await room.save();
             io.to(data.roomName).emit('updatePlayers', room);
         }
     });
 
-    socket.on('passTurn', (data) => {
-        nextTurn(data.roomName);
-    });
-
-    socket.on('gameOver', (data) => {
-        let room = rooms[data.roomName];
+    socket.on('gameOver', async (data) => {
+        let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
         room.gamePhase = 'gameover';
+        await room.save();
         io.to(data.roomName).emit('gameEnded', { msg: data.msg });
     });
 
-    socket.on('leaveGame', (data) => {
-        if (disconnectedPlayers[socket.id]) {
-            clearTimeout(disconnectedPlayers[socket.id]);
-            delete disconnectedPlayers[socket.id];
+    socket.on('leaveGame', async (data) => {
+        // En spelare väljer aktivt att lämna för evigt
+        let room = await Room.findOne({ roomName: data.roomName });
+        if (!room) return;
+
+        let playerIndex = room.players.findIndex(p => p.id === data.playerId);
+        if (playerIndex !== -1) {
+            let player = room.players[playerIndex];
+            
+            if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
+                room.gamePhase = 'gameover';
+                io.to(room.roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
+            }
+            
+            room.players.splice(playerIndex, 1);
+
+            if (room.gamePhase === 'waiting' && room.players.length > 0) {
+                if (room.hostId === data.playerId) room.hostId = room.players[0].id;
+                io.to(room.roomName).emit('roomUpdate', room);
+            }
+
+            if (room.players.length === 0) {
+                await Room.deleteOne({ roomName: data.roomName });
+            } else {
+                room.markModified('players');
+                await room.save();
+            }
         }
-        handlePlayerLeave(socket.id, data.roomName);
     });
 
-    socket.on('playCard', (data, callback) => {
-        const { roomName, pIndex, bIndex, card, toSuit, toSide } = data;
-        let room = rooms[roomName];
+    socket.on('playCard', async (data, callback) => {
+        const { roomName, playerId, pIndex, bIndex, card, toSuit, toSide } = data;
+        let room = await Room.findOne({ roomName: roomName });
         if(!room) return;
 
-        if (room.players[pIndex].id !== socket.id) return callback({success: false, msg: "Cheating!"});
+        if (room.players[pIndex].id !== playerId) return callback({success: false, msg: "Cheating!"});
         if (room.gamePhase === 'setup') return callback({ success: false, msg: "Wait until everyone has chosen their playable cards!" });
         if (card.suit !== toSuit) return callback({ success: false, msg: "Card dragged to the wrong suit!" });
 
@@ -274,8 +338,10 @@ io.on('connection', (socket) => {
             let isWin = Object.values(room.boardState).every(s => s.min === 1 && s.max === 13);
             if (isWin) {
                 room.gamePhase = 'gameover';
+                room.markModified('players');
+                room.markModified('boardState');
+                await room.save();
                 io.to(roomName).emit('boardUpdated', room);
-                // SKICKAR MED TOTAL TURNS!
                 io.to(roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
                 return callback({ success: true });
             }
@@ -284,11 +350,18 @@ io.on('connection', (socket) => {
                 room.players[pIndex].mustReplace = true;
                 room.players[pIndex].replaceFacedown = playedCardWasFacedown;
                 
+                room.markModified('players');
+                room.markModified('boardState');
+                await room.save();
+
                 io.to(roomName).emit('boardUpdated', room);
                 io.to(roomName).emit('updatePlayers', room);
                 callback({ success: true });
             } else {
-                nextTurn(roomName);
+                room.markModified('players');
+                room.markModified('boardState');
+                await room.save();
+                await nextTurn(room);
                 callback({ success: true });
             }
         } else {
@@ -296,9 +369,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('moveJoker', (data, callback) => {
-        const { roomName, pIndex, fromSuit, fromSide, toSuit, toSide } = data;
-        let room = rooms[roomName];
+    socket.on('moveJoker', async (data, callback) => {
+        const { roomName, playerId, pIndex, fromSuit, fromSide, toSuit, toSide } = data;
+        let room = await Room.findOne({ roomName: roomName });
         if(!room) return;
 
         if (toSide === 'min' && room.boardState[toSuit].min === 1) return callback({ success: false, msg: "That side is completed and closed!" });
@@ -320,14 +393,14 @@ io.on('connection', (socket) => {
         room.lastAction = { type: 'joker', playerName: room.players[pIndex].name };
         room.lastActionTime = Date.now();
 
-        nextTurn(roomName);
+        room.markModified('boardState');
+        await room.save();
+
+        await nextTurn(room);
         callback({ success: true });
     });
 
-    function nextTurn(roomName) {
-        let room = rooms[roomName];
-        if(!room) return;
-
+    async function nextTurn(room) {
         room.players.forEach(p => p.buffer.forEach(c => {
             if (c.revealedThisTurn) {
                 c.isFacedown = true;
@@ -350,51 +423,24 @@ io.on('connection', (socket) => {
         
         room.currentTurn = nextIndex;
         
-        io.to(roomName).emit('boardUpdated', room);
-        io.to(roomName).emit('updatePlayers', room);
+        room.markModified('players');
+        await room.save();
+
+        io.to(room.roomName).emit('boardUpdated', room);
+        io.to(room.roomName).emit('updatePlayers', room);
+
+        // HÄR kommer vi i nästa steg (Push-notiser) att kolla vem som har 
+        // room.currentTurn och väcka deras telefon om de inte är online!
     }
 
-    function handlePlayerLeave(socketId, specificRoom = null) {
-        let roomsToCheck = specificRoom ? [specificRoom] : Object.keys(rooms);
-        
-        for (let roomName of roomsToCheck) {
-            let room = rooms[roomName];
-            if (!room) continue;
-
-            let playerIndex = room.players.findIndex(p => p.id === socketId);
-            if (playerIndex !== -1) {
-                let player = room.players[playerIndex];
-                
-                if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
-                    room.gamePhase = 'gameover';
-                    io.to(roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
-                }
-                
-                room.players.splice(playerIndex, 1);
-
-                if (room.gamePhase === 'waiting' && room.players.length > 0) {
-                    if (room.host === socketId) room.host = room.players[0].id;
-                    io.to(roomName).emit('roomUpdate', room);
-                }
-
-                if (room.players.length === 0) {
-                    delete rooms[roomName]; 
-                }
-            }
-        }
-    }
-
-    socket.on('disconnect', (reason) => {
-        console.log('Player disconnected:', socket.id, 'Reason:', reason);
-        // Ökad till 180 sekunder (3 minuter) för bättre felmarginal på mobiler
-        disconnectedPlayers[socket.id] = setTimeout(() => {
-            handlePlayerLeave(socket.id);
-            delete disconnectedPlayers[socket.id];
-        }, 180000); 
+    socket.on('disconnect', () => {
+        console.log('A device disconnected:', socket.id);
+        // Vi tar INTE bort spelaren från databasen. 
+        // Detta är magin med asynkront spel! De ligger kvar i databasen och väntar.
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`House of Jokers running on port ${PORT}`);
+    console.log(`House of Jokers asynkron server rullar på port ${PORT}`);
 });
