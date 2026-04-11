@@ -461,7 +461,6 @@ io.on('connection', (socket) => {
         if (toSide === 'max') room.boardState[toSuit].jokerMax = true;
         if (toSide === 'center') room.boardState[toSuit].jokerCenter = true;
 
-        // SPARA VART JOKERN HAMNADE FÖR GLOW-EFFEKTEN
         room.lastAction = { type: 'joker', playerName: room.players[pIndex].name, suit: toSuit, side: toSide };
         room.lastActionTime = Date.now();
         room.markModified('boardState'); await room.save();
@@ -500,7 +499,7 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - V4 (Sabotage-filter & Pauser)
+    // 6. BOT INTELLIGENS (AI) - BUGGFIXAD (Slutar spela efter påfyllning)
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
         setTimeout(async () => {
@@ -547,9 +546,13 @@ io.on('connection', (socket) => {
                     
                     r2.markModified('players'); await r2.save(); 
                     
-                    // PAUS INNAN TUREN GÅR VIDARE
+                    // Uppdatera brädet och vänta 1,5s innan TUREN GÅR TILL NÄSTA SPELARE
                     io.to(roomName).emit('boardUpdated', r2);
-                    setTimeout(() => { playBotTurn(roomName, botIndex); }, 3000);
+                    io.to(roomName).emit('updatePlayers', r2);
+                    setTimeout(async () => { 
+                        let r3 = await Room.findOne({ roomName });
+                        if(r3) await nextTurn(r3); 
+                    }, 1500);
 
                 }, 2500);
                 return;
@@ -612,7 +615,6 @@ io.on('connection', (socket) => {
                     let openPlayableNow = getOpenPlayableCount(friend, nextBoard);
                     let previouslyPlayable = getOpenPlayableCount(friend, room.boardState);
 
-                    // SABOTAGE-FILTRET: Om draget blockerar en kompis helt, avbryt!
                     if (previouslyPlayable > 0 && openPlayableNow === 0) completelyBlockedSomeone = true;
 
                     if (openPlayableNow > 0) {
@@ -807,15 +809,13 @@ io.on('connection', (socket) => {
         if (to.side === 'max') room.boardState[to.suit].jokerMax = true;
         if (to.side === 'center') room.boardState[to.suit].jokerCenter = true;
 
-        // SPARA VART JOKERN HAMNADE FÖR GLOW-EFFEKTEN
         room.lastAction = { type: 'joker', playerName: bot.name, suit: to.suit, side: to.side };
         room.lastActionTime = Date.now();
         room.markModified('boardState'); 
         await room.save();
         
-        io.to(room.roomName).emit('boardUpdated', room); // Visar glow
+        io.to(room.roomName).emit('boardUpdated', room); 
         
-        // 3 SEKUNDER PAUS EFTER ETT JOKERDRAG
         setTimeout(async () => {
             let r2 = await Room.findOne({ roomName: room.roomName });
             if(r2) await nextTurn(r2);
@@ -862,14 +862,12 @@ io.on('connection', (socket) => {
             io.to(room.roomName).emit('boardUpdated', room); 
             io.to(room.roomName).emit('updatePlayers', room);
             
-            // PAUS PÅ 3 SEKUNDER INNAN BOTEN DRAR KORT
             setTimeout(() => { playBotTurn(room.roomName, botIndex); }, 3000);
         } else {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
-            io.to(room.roomName).emit('boardUpdated', room); // Visar glow
+            io.to(room.roomName).emit('boardUpdated', room); 
             
-            // PAUS PÅ 3 SEKUNDER INNAN TUREN GÅR VIDARE TILL NÄSTA
             setTimeout(async () => {
                 let r2 = await Room.findOne({ roomName: room.roomName });
                 if(r2) await nextTurn(r2);
@@ -905,9 +903,8 @@ io.on('connection', (socket) => {
         room.markModified('players');
         await room.save();
         
-        io.to(room.roomName).emit('updatePlayers', room); // Visar det nedvända kortet
+        io.to(room.roomName).emit('updatePlayers', room); 
         
-        // PAUS PÅ 3 SEK EFTER STRAFFET
         setTimeout(async () => {
             let r2 = await Room.findOne({ roomName: room.roomName });
             if(r2) await nextTurn(r2);
