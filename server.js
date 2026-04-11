@@ -461,7 +461,8 @@ io.on('connection', (socket) => {
         if (toSide === 'max') room.boardState[toSuit].jokerMax = true;
         if (toSide === 'center') room.boardState[toSuit].jokerCenter = true;
 
-        room.lastAction = { type: 'joker', playerName: room.players[pIndex].name };
+        // SPARA VART JOKERN HAMNADE FÖR GLOW-EFFEKTEN
+        room.lastAction = { type: 'joker', playerName: room.players[pIndex].name, suit: toSuit, side: toSide };
         room.lastActionTime = Date.now();
         room.markModified('boardState'); await room.save();
         await nextTurn(room); callback({ success: true });
@@ -499,7 +500,7 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - V3 (Stilrena meddelanden & Gud-prioritet)
+    // 6. BOT INTELLIGENS (AI) - V4 (Sabotage-filter & Pauser)
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
         setTimeout(async () => {
@@ -544,7 +545,12 @@ io.on('connection', (socket) => {
                     b2.buffer.splice(insertAt, 0, card);
                     b2.mustReplace = false; delete b2.replaceIndex; 
                     
-                    r2.markModified('players'); await r2.save(); await nextTurn(r2);
+                    r2.markModified('players'); await r2.save(); 
+                    
+                    // PAUS INNAN TUREN GÅR VIDARE
+                    io.to(roomName).emit('boardUpdated', r2);
+                    setTimeout(() => { playBotTurn(roomName, botIndex); }, 3000);
+
                 }, 2500);
                 return;
             }
@@ -592,26 +598,24 @@ io.on('connection', (socket) => {
             }
 
             function evaluateBoard(b, nextBoard, isJokerMove) {
-                // NYTT: Kolla om draget innebär omedelbar vinst (Gud-prioriteten)
                 let isWin = Object.values(nextBoard).every(s => s.min === 1 && s.max === 13);
                 if (isWin) return 10000;
 
-                let score = 0;
+                let completelyBlockedSomeone = false;
                 let helpsSelf = false;
                 let helpsFriend = false;
                 let rescuesCrisis = false;
-
-                for (let hc of b.hand) {
-                    if (checkPlayability(hc, nextBoard)) { helpsSelf = true; break; }
-                }
 
                 for (let i = 1; i < room.players.length; i++) {
                     let fIndex = (botIndex + i) % room.players.length;
                     let friend = room.players[fIndex];
                     let openPlayableNow = getOpenPlayableCount(friend, nextBoard);
-                    
+                    let previouslyPlayable = getOpenPlayableCount(friend, room.boardState);
+
+                    // SABOTAGE-FILTRET: Om draget blockerar en kompis helt, avbryt!
+                    if (previouslyPlayable > 0 && openPlayableNow === 0) completelyBlockedSomeone = true;
+
                     if (openPlayableNow > 0) {
-                        let previouslyPlayable = getOpenPlayableCount(friend, room.boardState);
                         if (openPlayableNow > previouslyPlayable) {
                             helpsFriend = true;
                             if (friendsInCrisis.includes(fIndex)) rescuesCrisis = true;
@@ -619,6 +623,13 @@ io.on('connection', (socket) => {
                     }
                 }
 
+                if (completelyBlockedSomeone) return -1000;
+
+                for (let hc of b.hand) {
+                    if (checkPlayability(hc, nextBoard)) { helpsSelf = true; break; }
+                }
+
+                let score = 0;
                 if (rescuesCrisis) score = isJokerMove ? 900 : 1000;
                 else if (helpsFriend && helpsSelf && !isJokerMove) score = 800; 
                 else if (helpsSelf && !isJokerMove) score = 700; 
@@ -634,12 +645,13 @@ io.on('connection', (socket) => {
 
                 let scorePlay = evaluateBoard(bot, nextBoardPlay, false);
                 
-                if (myPlayableEngines.length === 1 && scorePlay < 600) {
+                if (myPlayableEngines.length === 1 && scorePlay < 600 && scorePlay !== -1000) {
                     scorePlay = 10; 
                 } else if (scorePlay === 0) {
                     scorePlay = 100; 
                 }
-                possibleActions.push({ type: 'play', engine: engine, score: scorePlay });
+                
+                if(scorePlay > -1000) possibleActions.push({ type: 'play', engine: engine, score: scorePlay });
 
                 if (jokersActive) {
                     let movableJokers = [];
@@ -660,15 +672,17 @@ io.on('connection', (socket) => {
 
                             let scoreJoker = evaluateBoard(bot, nextBoardJoker, true);
 
-                            if (myPlayableEngines.length === 1) {
-                                if (scoreJoker < 500) {
-                                    if (jTo.side === 'center') scoreJoker = 400; 
-                                    else scoreJoker = 300; 
+                            if (scoreJoker > -1000) {
+                                if (myPlayableEngines.length === 1) {
+                                    if (scoreJoker < 500) {
+                                        if (jTo.side === 'center') scoreJoker = 400; 
+                                        else scoreJoker = 300; 
+                                    }
+                                } else {
+                                    if (scoreJoker === 0) scoreJoker = 5; 
                                 }
-                            } else {
-                                if (scoreJoker === 0) scoreJoker = 5; 
+                                possibleActions.push({ type: 'joker', engine: engine, jFrom: jFrom, jTo: jTo, score: scoreJoker });
                             }
-                            possibleActions.push({ type: 'joker', engine: engine, jFrom: jFrom, jTo: jTo, score: scoreJoker });
                         });
                     });
                 }
@@ -793,11 +807,19 @@ io.on('connection', (socket) => {
         if (to.side === 'max') room.boardState[to.suit].jokerMax = true;
         if (to.side === 'center') room.boardState[to.suit].jokerCenter = true;
 
-        room.lastAction = { type: 'joker', playerName: bot.name };
+        // SPARA VART JOKERN HAMNADE FÖR GLOW-EFFEKTEN
+        room.lastAction = { type: 'joker', playerName: bot.name, suit: to.suit, side: to.side };
         room.lastActionTime = Date.now();
         room.markModified('boardState'); 
         await room.save();
-        await nextTurn(room);
+        
+        io.to(room.roomName).emit('boardUpdated', room); // Visar glow
+        
+        // 3 SEKUNDER PAUS EFTER ETT JOKERDRAG
+        setTimeout(async () => {
+            let r2 = await Room.findOne({ roomName: room.roomName });
+            if(r2) await nextTurn(r2);
+        }, 3000);
     }
 
     async function finalizeBotPlay(room, botIndex, engine) {
@@ -836,11 +858,22 @@ io.on('connection', (socket) => {
             bot.mustReplace = true;
             bot.replaceFacedown = playedCardWasFacedown;
             room.markModified('players'); room.markModified('boardState'); await room.save();
-            io.to(room.roomName).emit('boardUpdated', room); io.to(room.roomName).emit('updatePlayers', room);
-            playBotTurn(room.roomName, botIndex);
+            
+            io.to(room.roomName).emit('boardUpdated', room); 
+            io.to(room.roomName).emit('updatePlayers', room);
+            
+            // PAUS PÅ 3 SEKUNDER INNAN BOTEN DRAR KORT
+            setTimeout(() => { playBotTurn(room.roomName, botIndex); }, 3000);
         } else {
             room.markModified('players'); room.markModified('boardState'); await room.save();
-            await nextTurn(room);
+            
+            io.to(room.roomName).emit('boardUpdated', room); // Visar glow
+            
+            // PAUS PÅ 3 SEKUNDER INNAN TUREN GÅR VIDARE TILL NÄSTA
+            setTimeout(async () => {
+                let r2 = await Room.findOne({ roomName: room.roomName });
+                if(r2) await nextTurn(r2);
+            }, 3000);
         }
     }
 
@@ -871,7 +904,14 @@ io.on('connection', (socket) => {
 
         room.markModified('players');
         await room.save();
-        await nextTurn(room);
+        
+        io.to(room.roomName).emit('updatePlayers', room); // Visar det nedvända kortet
+        
+        // PAUS PÅ 3 SEK EFTER STRAFFET
+        setTimeout(async () => {
+            let r2 = await Room.findOne({ roomName: room.roomName });
+            if(r2) await nextTurn(r2);
+        }, 3000);
     }
 
     // --- HANDLE PLAYER LEAVE ---

@@ -692,6 +692,7 @@
         
         let interactionState = 'normal'; 
         let pendingGuessCard = null; 
+        let cardToRevert = null; 
         
         let roomLastAction = null;
         let roomLastActionTime = null;
@@ -777,8 +778,6 @@
             const roomName = document.getElementById('inputCreateRoomName').value;
             const maxPlayers = document.querySelector('input[name="playerCount"]:checked').value;
             const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
-            
-            // NYTT FÖR AI
             const playWith = document.querySelector('input[name="playWith"]:checked').value;
 
             if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Enter a room name!";
@@ -789,7 +788,6 @@
                     localStorage.setItem('hoj_roomName', roomName);
                     document.getElementById('createView').style.display = 'none';
                     
-                    // Om det är ett AI-spel, hoppar vi över väntrummet (hanteras via gameState direkt)
                     if (!res.isAiGame) {
                         document.getElementById('waitingView').style.display = 'block';
                     }
@@ -908,7 +906,7 @@
         }
 
         function updateMainStatus() {
-            if (interactionState === 'penalty' || interactionState === 'waiting' || interactionState === 'gameover') return; 
+            if (interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'waiting' || interactionState === 'gameover') return; 
             if (isTaunting) return;
 
             let isMyTurn = false;
@@ -1088,10 +1086,12 @@
             if (interactionState === 'waiting' || interactionState === 'gameover' || pIndex !== activeTurn || gamePhase === 'setup' || localPlayers[activeTurn].mustReplace) return;
             let card = localPlayers[pIndex].buffer[bIndex];
 
-            // Om man ska vända ett kort som straff
             if (event && event.currentTarget && event.currentTarget.classList.contains('penalty-target')) {
                 interactionState = 'waiting'; 
-                socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
+                if (cardToRevert) {
+                    socket.emit('flipCardAndRevert', { roomName: myRoomName, playerId: myPlayerId, pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
+                    cardToRevert = null;
+                } else socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
                 return;
             }
 
@@ -1106,7 +1106,7 @@
                 return;
             }
 
-            if (interactionState === 'penalty') {
+            if (interactionState === 'penalty' || interactionState === 'penalty_with_revert') {
                 setStatus("Hey, you have to pick a face-up card with a red glow to turn down!"); return;
             }
 
@@ -1120,7 +1120,6 @@
             }
         }
 
-        // NYTT FÖR 3-SEKUNDERSVISNINGEN
         function submitGuess() {
             document.getElementById('guessDialog').close();
             const guessSuit = document.getElementById('guessSuit').value;
@@ -1128,7 +1127,7 @@
             let faceUpCountBefore = localPlayers[activeTurn].buffer.filter(c => !c.isFacedown).length;
             const actualCard = pendingGuessCard.card;
             
-            interactionState = 'waiting'; // Lås allt under tiden vi visar kortet!
+            interactionState = 'waiting'; 
 
             if (actualCard.suit === guessSuit && actualCard.value === guessValue) {
                 let isPlayable = isCardPlayable(actualCard);
@@ -1145,7 +1144,6 @@
                     if (faceUpCountBefore === 0) {
                         socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed correctly, but the card couldn't be played and there are no other cards to turn down. You lost!` });
                     } else {
-                        // Samma straff som att gissa fel - men vi triggar 3 sekunders visning först
                         socket.emit('tempReveal', { roomName: myRoomName, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex, card: actualCard, nextState: 'penalty' });
                         showTemporaryTaunt(`Right card, wrong time! Take your penalty.`);
                     }
@@ -1164,29 +1162,31 @@
             }
         }
 
-        // Lyssna på att servern ber alla visa ett kort temporärt
         socket.on('showTempReveal', (data) => {
             let p = localPlayers[data.pIndex];
             if (p && p.buffer[data.bIndex]) {
                 let originalFacedown = p.buffer[data.bIndex].isFacedown;
-                p.buffer[data.bIndex].isFacedown = false; // Visa kortet
-                p.buffer[data.bIndex].tempReveal = true; // Markera att det är tillfälligt
+                p.buffer[data.bIndex].isFacedown = false; 
+                p.buffer[data.bIndex].tempReveal = true; 
                 
-                // Om jag är den som gissade är jag redan i 'waiting', om jag är någon annan ska jag inte bry mig om state
                 renderPlayers(); 
 
                 setTimeout(() => {
-                    p.buffer[data.bIndex].isFacedown = originalFacedown; // Vänd ner det igen
+                    p.buffer[data.bIndex].isFacedown = originalFacedown; 
                     delete p.buffer[data.bIndex].tempReveal;
                     
                     if (data.pIndex === activeTurn && localPlayers[activeTurn].id === myPlayerId) {
-                        interactionState = data.nextState; // Nu börjar straffet!
+                        interactionState = data.nextState; 
                         pendingGuessCard = null;
                     }
                     renderPlayers();
                     updateMainStatus();
-                }, 3000); // 3 sekunder
+                }, 3000); 
             }
+        });
+
+        socket.on('botTaunt', (msg) => {
+            showTemporaryTaunt(msg);
         });
 
         function generateCardHTML(value, suit) {
@@ -1222,13 +1222,21 @@
             }
             let jokersActive = myTurnHasPlayable && cardsPlayedCount >= 3 && interactionState === 'normal';
             let shimmerSide = null; let shimmerSuit = null;
-            if (roomLastAction && roomLastActionTime && (Date.now() - roomLastActionTime < 1500) && roomLastAction.type === 'play') {
-                shimmerSide = roomLastAction.side; shimmerSuit = roomLastAction.card.suit;
+            
+            // Tiden höjd till 3500ms så man hinner se effekten under botens "tänkepaus"
+            if (roomLastAction && roomLastActionTime && (Date.now() - roomLastActionTime < 3500)) {
+                if (roomLastAction.type === 'play') {
+                    shimmerSide = roomLastAction.side; shimmerSuit = roomLastAction.card.suit;
+                } else if (roomLastAction.type === 'joker') {
+                    shimmerSide = roomLastAction.side; shimmerSuit = roomLastAction.suit;
+                }
             }
+            
             const boardDiv = document.getElementById('boardContainer'); boardDiv.innerHTML = '';
             ['♠', '♥', '♣', '♦'].forEach(suit => {
                 const state = currentBoardState[suit]; if (!state) return;
                 const row = document.createElement('div'); row.className = 'suit-row';
+                
                 let isCompleteMin = state.min === 1;
                 const minZone = document.createElement('div'); minZone.className = 'drop-zone'; 
                 if (isCompleteMin) minZone.classList.add('completed-zone'); else if (state.min !== 7) minZone.classList.add('played-card');
@@ -1244,10 +1252,13 @@
                     } else jBadge.classList.add('joker-inactive-badge');
                     minZone.appendChild(jBadge);
                 }
+                
                 const sevenCard = createCardDOM({ value: 7, suit: suit }); sevenCard.classList.add('center-seven');
+                if (shimmerSide === 'center' && shimmerSuit === suit) sevenCard.classList.add('shimmer-effect');
                 let suitComplete = (state.min === 1 && state.max === 13);
                 if (suitComplete) { sevenCard.ondrop = (ev) => drop(ev, suit, 'center'); sevenCard.ondragover = allowDrop; sevenCard.ondragleave = dragLeave; sevenCard.onclick = (ev) => handleZoneClick(ev, suit, 'center'); }
                 if (state.jokerCenter) { let jBadge = document.createElement('div'); jBadge.className = 'joker-badge eliminated-joker'; sevenCard.appendChild(jBadge); }
+                
                 let isCompleteMax = state.max === 13;
                 const maxZone = document.createElement('div'); maxZone.className = 'drop-zone';
                 if (isCompleteMax) maxZone.classList.add('completed-zone'); else if (state.max !== 7) maxZone.classList.add('played-card');
@@ -1263,6 +1274,7 @@
                     } else jBadge.classList.add('joker-inactive-badge');
                     maxZone.appendChild(jBadge);
                 }
+                
                 row.appendChild(minZone); row.appendChild(sevenCard); row.appendChild(maxZone); boardDiv.appendChild(row);
             });
         }
@@ -1316,7 +1328,6 @@
                     let showFacedown = card.isFacedown;
                     if (gamePhase === 'setup' && isMe) showFacedown = false;
                     
-                    // OM KORTET VISAS TEMPORÄRT!
                     if (card.tempReveal) showFacedown = false;
 
                     const cardEl = createCardDOM(card, showFacedown);
@@ -1324,7 +1335,7 @@
                     if (isMe && pIndex === activeTurn && interactionState !== 'gameover' && gamePhase === 'playing') {
                         let isPenaltyState = (interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'blocked');
                         
-                        if (!p.mustReplace && !card.tempReveal) { // Låt bli temporärt visade kort
+                        if (!p.mustReplace && !card.tempReveal) { 
                             if (card.isFacedown) {
                                 if (!isPenaltyState || interactionState === 'blocked') {
                                     cardEl.classList.add('glow-yellow'); cardEl.classList.add('clickable');
