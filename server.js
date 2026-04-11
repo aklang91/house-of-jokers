@@ -72,7 +72,7 @@ roomSchema.pre('save', function(next) {
 const Room = mongoose.model('Room', roomSchema);
 
 // ==========================================
-// 4. HJÄLPFUNKTIONER
+// 4. HJÄLPFUNKTIONER & SETUP
 // ==========================================
 function createDeck() {
     const suits = ['♠', '♥', '♣', '♦']; 
@@ -91,7 +91,6 @@ function shuffle(array) {
     return array;
 }
 
-// NYTT: Extraherad Start-logik så vi kan trigga den för AI-spel direkt
 async function startRoundLogic(room) {
     room.gamePhase = 'setup';
     room.currentTurn = -1; 
@@ -112,12 +111,16 @@ async function startRoundLogic(room) {
         });
     });
 
-    // Om det finns Bottar, låt dem välja sina 3 startkort direkt
+    // BOTTARNAS VAL: Sortera på avstånd till 7 och välj de bästa startkorten
     room.players.forEach(p => {
         if (p.isBot) {
-            for(let i=0; i<room.bufferSize; i++) {
-                let c = p.hand.shift();
-                c.isFacedown = true;
+            let sortedHand = [...p.hand].sort((a, b) => Math.abs(a.value - 7) - Math.abs(b.value - 7));
+            let selectedCards = sortedHand.slice(0, room.bufferSize);
+            
+            p.hand = p.hand.filter(c => !selectedCards.some(sc => sc.suit === c.suit && sc.value === c.value));
+            
+            for(let c of selectedCards) {
+                c.isFacedown = true; // Ligger dolt under setupen
                 p.buffer.push(c);
             }
             p.setupConfirmed = true;
@@ -128,7 +131,6 @@ async function startRoundLogic(room) {
     await room.save();
     io.to(room.roomName).emit('gameState', room);
 
-    // NOTIS PÅ START
     room.players.forEach(p => {
         if (p.id !== room.hostId && !p.isBot) {
             sendPush(p, 'House of Jokers', `The game has started in ${room.roomName}! Hurry up and pick your playable cards.`);
@@ -152,11 +154,9 @@ io.on('connection', (socket) => {
     
     socket.emit('yourId', socket.id);
 
-    // --- PUSH SUBSCRIPTION ---
     socket.on('savePushSubscription', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if (!room) return;
-        
         let pIndex = room.players.findIndex(p => p.id === data.playerId);
         if (pIndex !== -1) {
             room.players[pIndex].pushSubscription = data.subscription;
@@ -165,18 +165,15 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- REJOIN GAME ---
     socket.on('rejoinGame', async (data, callback) => {
         try {
             let room = await Room.findOne({ roomName: data.roomName });
             if (!room) return callback({ success: false });
-            
             let player = room.players.find(p => p.id === data.playerId);
             if (!player) return callback({ success: false });
 
             socket.join(room.roomName);
             socket.playerId = data.playerId; 
-            
             callback({ success: true, gamePhase: room.gamePhase }); 
             
             if (room.gamePhase === 'waiting') {
@@ -184,15 +181,11 @@ io.on('connection', (socket) => {
             } else {
                 socket.emit('gameState', room); 
             }
-        } catch(e) {
-            callback({ success: false });
-        }
+        } catch(e) { callback({ success: false }); }
     });
 
-    // --- CREATE GAME ---
     socket.on('createGame', async (data, callback) => {
         const { playerId, playerName, roomName, maxPlayers, difficulty, playWith } = data;
-        
         let existingRoom = await Room.findOne({ roomName: roomName });
         
         if (existingRoom) {
@@ -240,14 +233,10 @@ io.on('connection', (socket) => {
         socket.playerId = playerId;
         callback({ success: true, isAiGame });
         
-        if (isAiGame) {
-            startRoundLogic(newRoom); 
-        } else {
-            io.to(roomName).emit('roomUpdate', newRoom);
-        }
+        if (isAiGame) startRoundLogic(newRoom); 
+        else io.to(roomName).emit('roomUpdate', newRoom);
     });
 
-    // --- JOIN GAME ---
     socket.on('joinGame', async (data, callback) => {
         const { playerId, playerName, roomName } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -268,12 +257,9 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('roomUpdate', room);
 
         let hostPlayer = room.players.find(p => p.id === room.hostId);
-        if (hostPlayer && hostPlayer.id !== playerId) {
-            sendPush(hostPlayer, 'House of Jokers', `${playerName} just joined your room!`);
-        }
+        if (hostPlayer && hostPlayer.id !== playerId) sendPush(hostPlayer, 'House of Jokers', `${playerName} just joined your room!`);
     });
 
-    // --- START ROUND ---
     socket.on('startRound', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if (room && room.hostId === data.playerId && room.players.length === room.maxPlayers) {
@@ -281,7 +267,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- CONFIRM SETUP ---
     socket.on('confirmSetup', async (data, callback) => {
         const { roomName, playerId, buffer, hand } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -307,9 +292,13 @@ io.on('connection', (socket) => {
         await room.save();
         io.to(roomName).emit('updatePlayers', room);
         callback({ success: true });
+
+        // Trigga bot-turen ifall det råkar bli datorns tur direkt efter upplägget!
+        if (room.players.every(p => p.setupConfirmed) && room.players[room.currentTurn].isBot) {
+            playBotTurn(roomName, room.currentTurn);
+        }
     });
 
-    // --- FILL BUFFER ---
     socket.on('fillBuffer', async (data, callback) => {
         const { roomName, playerId, cardIndex } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -334,12 +323,9 @@ io.on('connection', (socket) => {
             await room.save();
             await nextTurn(room);
             callback({ success: true });
-        } else {
-            callback({ success: false, msg: "You cannot select more cards right now!" });
-        }
+        } else { callback({ success: false, msg: "You cannot select more cards right now!" }); }
     });
 
-    // --- FLIP CARD (Penalty) ---
     socket.on('flipCard', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -352,13 +338,26 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- TEMP REVEAL (Misslyckad gissning) ---
+    socket.on('flipCardAndRevert', async (data) => {
+        let room = await Room.findOne({ roomName: data.roomName });
+        if(!room) return;
+        let player = room.players[data.pIndex];
+        if (player && player.id === data.playerId) {
+            if (player.buffer[data.penaltyIndex]) player.buffer[data.penaltyIndex].isFacedown = true;
+            if (player.buffer[data.revertIndex]) {
+                player.buffer[data.revertIndex].isFacedown = true;
+                player.buffer[data.revertIndex].revealedThisTurn = false;
+            }
+            room.markModified('players');
+            await room.save();
+            await nextTurn(room);
+        }
+    });
+
     socket.on('tempReveal', (data) => {
-        // Ber alla i rummet att visa kortet i 3 sekunder
         io.to(data.roomName).emit('showTempReveal', data);
     });
 
-    // --- REVEAL CARD (Lyckad gissning) ---
     socket.on('revealCard', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -372,29 +371,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- GAME OVER ---
     socket.on('gameOver', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
         room.gamePhase = 'gameover';
         await room.save();
         io.to(data.roomName).emit('gameEnded', { msg: data.msg });
-
-        room.players.forEach(p => {
-            if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${data.msg}`);
-        });
+        room.players.forEach(p => { if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${data.msg}`); });
     });
 
-    // --- LEAVE GAME ---
     socket.on('leaveGame', async (data) => {
-        if (disconnectedPlayers[socket.id]) {
-            clearTimeout(disconnectedPlayers[socket.id]);
-            delete disconnectedPlayers[socket.id];
-        }
+        if (disconnectedPlayers[socket.id]) { clearTimeout(disconnectedPlayers[socket.id]); delete disconnectedPlayers[socket.id]; }
         await handlePlayerLeave(socket.id, data.roomName, data.playerId);
     });
 
-    // --- PLAY CARD ---
     socket.on('playCard', async (data, callback) => {
         const { roomName, playerId, pIndex, bIndex, card, toSuit, toSide } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -409,12 +399,10 @@ io.on('connection', (socket) => {
 
         if (toSide === 'max' && card.value === suitState.max + 1) {
             if (suitState.jokerMax) return callback({ success: false, msg: "Blocked! A joker is in the way." });
-            suitState.max = card.value;
-            isValidMove = true;
+            suitState.max = card.value; isValidMove = true;
         } else if (toSide === 'min' && card.value === suitState.min - 1) {
             if (suitState.jokerMin) return callback({ success: false, msg: "Blocked! A joker is in the way." });
-            suitState.min = card.value;
-            isValidMove = true;
+            suitState.min = card.value; isValidMove = true;
         }
 
         if (isValidMove) {
@@ -436,43 +424,26 @@ io.on('connection', (socket) => {
             let isWin = Object.values(room.boardState).every(s => s.min === 1 && s.max === 13);
             if (isWin) {
                 room.gamePhase = 'gameover';
-                room.markModified('players');
-                room.markModified('boardState');
-                await room.save();
+                room.markModified('players'); room.markModified('boardState'); await room.save();
                 io.to(roomName).emit('boardUpdated', room);
                 io.to(roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
-                
-                room.players.forEach(p => {
-                    if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`);
-                });
-
+                room.players.forEach(p => { if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`); });
                 return callback({ success: true });
             }
 
             if (room.players[pIndex].hand.length > 0) {
                 room.players[pIndex].mustReplace = true;
                 room.players[pIndex].replaceFacedown = playedCardWasFacedown;
-                
-                room.markModified('players');
-                room.markModified('boardState');
-                await room.save();
-
-                io.to(roomName).emit('boardUpdated', room);
-                io.to(roomName).emit('updatePlayers', room);
+                room.markModified('players'); room.markModified('boardState'); await room.save();
+                io.to(roomName).emit('boardUpdated', room); io.to(roomName).emit('updatePlayers', room);
                 callback({ success: true });
             } else {
-                room.markModified('players');
-                room.markModified('boardState');
-                await room.save();
-                await nextTurn(room);
-                callback({ success: true });
+                room.markModified('players'); room.markModified('boardState'); await room.save();
+                await nextTurn(room); callback({ success: true });
             }
-        } else {
-            callback({ success: false, msg: "Invalid move! The card doesn't fit there." }); 
-        }
+        } else { callback({ success: false, msg: "Invalid move! The card doesn't fit there." }); }
     });
 
-    // --- MOVE JOKER ---
     socket.on('moveJoker', async (data, callback) => {
         const { roomName, playerId, pIndex, fromSuit, fromSide, toSuit, toSide } = data;
         let room = await Room.findOne({ roomName: roomName });
@@ -480,37 +451,26 @@ io.on('connection', (socket) => {
 
         if (toSide === 'min' && room.boardState[toSuit].min === 1) return callback({ success: false, msg: "That side is completed and closed!" });
         if (toSide === 'max' && room.boardState[toSuit].max === 13) return callback({ success: false, msg: "That side is completed and closed!" });
-
         if (toSide === 'center') {
-            if (room.boardState[toSuit].min !== 1 || room.boardState[toSuit].max !== 13) {
-                return callback({ success: false, msg: "The suit is not fully complete yet!" });
-            }
+            if (room.boardState[toSuit].min !== 1 || room.boardState[toSuit].max !== 13) return callback({ success: false, msg: "The suit is not fully complete yet!" });
         }
 
         if (fromSide === 'min') room.boardState[fromSuit].jokerMin = false;
         if (fromSide === 'max') room.boardState[fromSuit].jokerMax = false;
-        
         if (toSide === 'min') room.boardState[toSuit].jokerMin = true;
         if (toSide === 'max') room.boardState[toSuit].jokerMax = true;
         if (toSide === 'center') room.boardState[toSuit].jokerCenter = true;
 
         room.lastAction = { type: 'joker', playerName: room.players[pIndex].name };
         room.lastActionTime = Date.now();
-
-        room.markModified('boardState');
-        await room.save();
-
-        await nextTurn(room);
-        callback({ success: true });
+        room.markModified('boardState'); await room.save();
+        await nextTurn(room); callback({ success: true });
     });
 
-    // --- NEXT TURN OCH PUSH-NOTISER ---
+    // --- NEXT TURN ---
     async function nextTurn(room) {
         room.players.forEach(p => p.buffer.forEach(c => {
-            if (c.revealedThisTurn) {
-                c.isFacedown = true;
-                c.revealedThisTurn = false;
-            }
+            if (c.revealedThisTurn) { c.isFacedown = true; c.revealedThisTurn = false; }
         }));
         
         room.totalTurns++; 
@@ -520,15 +480,12 @@ io.on('connection', (socket) => {
         
         while (nextIndex !== startIndex) {
             let p = room.players[nextIndex];
-            if (p.hand.length > 0 || p.buffer.length > 0) {
-                break;
-            }
+            if (p.hand.length > 0 || p.buffer.length > 0) break;
             nextIndex = (nextIndex + 1) % room.players.length;
         }
         
         room.currentTurn = nextIndex;
-        room.markModified('players');
-        await room.save();
+        room.markModified('players'); await room.save();
 
         io.to(room.roomName).emit('boardUpdated', room);
         io.to(room.roomName).emit('updatePlayers', room);
@@ -538,8 +495,262 @@ io.on('connection', (socket) => {
         if (!nextPlayer.isBot) {
             sendPush(nextPlayer, 'House of Jokers', `Your turn! The board has changed in ${room.roomName}.`);
         } else {
-            // HÄR KOMMER AI:N SPELA SITT DRAG I FRAMTIDEN
+            playBotTurn(room.roomName, room.currentTurn);
         }
+    }
+
+    // ==========================================
+    // 6. BOT INTELLIGENS (AI)
+    // ==========================================
+    async function playBotTurn(roomName, botIndex) {
+        // Låt boten "tänka" i 2.5 sekunder
+        setTimeout(async () => {
+            let room = await Room.findOne({ roomName });
+            if (!room || room.gamePhase !== 'playing' || room.currentTurn !== botIndex) return;
+
+            let bot = room.players[botIndex];
+
+            // 1. Måste boten fylla på sin hand?
+            if (bot.mustReplace) {
+                let rIndex = Math.floor(Math.random() * bot.hand.length);
+                let card = bot.hand.splice(rIndex, 1)[0];
+                card.isFacedown = bot.replaceFacedown; 
+                
+                let insertAt = (bot.replaceIndex !== undefined) ? bot.replaceIndex : bot.buffer.length;
+                bot.buffer.splice(insertAt, 0, card);
+                
+                bot.mustReplace = false;
+                delete bot.replaceIndex; 
+                
+                room.markModified('players');
+                await room.save();
+                await nextTurn(room);
+                return;
+            }
+
+            // Hjälpfunktion för att kolla om ett kort kan spelas
+            const isCardPlayable = (c) => {
+                let state = room.boardState[c.suit];
+                if (c.value === state.min - 1 && !state.jokerMin) return { side: 'min' };
+                if (c.value === state.max + 1 && !state.jokerMax) return { side: 'max' };
+                return false;
+            };
+
+            let myPlayable = [];
+            bot.buffer.forEach((c, bIndex) => {
+                if (!c.isFacedown) {
+                    let playInfo = isCardPlayable(c);
+                    if (playInfo) myPlayable.push({ card: c, bIndex, side: playInfo.side });
+                }
+            });
+
+            let jokersActive = room.cardsPlayedCount >= 3;
+
+            // TAKTIK 1 & 2: VAKTMÄSTARE & HJÄLPA KOMPIS
+            if (myPlayable.length > 0) {
+                
+                // Om vi BARA har 1 öppet kort, prioritera att flytta jokrar för att rensa vägen
+                if (myPlayable.length === 1 && jokersActive) {
+                    let movableJokers = [];
+                    ['♠', '♥', '♣', '♦'].forEach(s => {
+                        if (room.boardState[s].jokerMin) movableJokers.push({suit: s, side: 'min'});
+                        if (room.boardState[s].jokerMax) movableJokers.push({suit: s, side: 'max'});
+                    });
+
+                    if (movableJokers.length > 0) {
+                        let centerTargets = [];
+                        let openTargets = [];
+                        
+                        ['♠', '♥', '♣', '♦'].forEach(s => {
+                            let state = room.boardState[s];
+                            if (state.min === 1 && state.max === 13 && !state.jokerCenter) centerTargets.push({suit: s, side: 'center'});
+                            if (state.min > 1 && !state.jokerMin) openTargets.push({suit: s, side: 'min'});
+                            if (state.max < 13 && !state.jokerMax) openTargets.push({suit: s, side: 'max'});
+                        });
+
+                        // Prioritera sjuor i mitten, annars en tom plats!
+                        let target = centerTargets.length > 0 ? centerTargets[0] : (openTargets.length > 0 ? openTargets[0] : null);
+
+                        if (target) {
+                            let from = movableJokers[0];
+                            if (from.side === 'min') room.boardState[from.suit].jokerMin = false;
+                            if (from.side === 'max') room.boardState[from.suit].jokerMax = false;
+                            
+                            if (target.side === 'min') room.boardState[target.suit].jokerMin = true;
+                            if (target.side === 'max') room.boardState[target.suit].jokerMax = true;
+                            if (target.side === 'center') room.boardState[target.suit].jokerCenter = true;
+
+                            room.lastAction = { type: 'joker', playerName: bot.name };
+                            room.lastActionTime = Date.now();
+                            room.markModified('boardState');
+                            await room.save();
+                            await nextTurn(room);
+                            return;
+                        }
+                    }
+                }
+
+                // Om vi ska spela ett kort, kolla om det hjälper en kompis!
+                let bestPlay = myPlayable[0];
+                for (let play of myPlayable) {
+                    let suit = play.card.suit;
+                    let nextVal = (play.side === 'min') ? play.card.value - 1 : play.card.value + 1;
+                    let unlocksFriend = false;
+
+                    // Kikar på de andras öppna kort för att se om vårt drag hjälper dem
+                    for (let i=1; i<room.players.length; i++) {
+                        let friend = room.players[(botIndex + i) % room.players.length];
+                        if (friend.buffer.some(c => !c.isFacedown && c.suit === suit && c.value === nextVal)) {
+                            unlocksFriend = true; break;
+                        }
+                    }
+                    if (unlocksFriend) { bestPlay = play; break; }
+                }
+
+                // Genomför kort-spelet
+                let move = bestPlay;
+                room.cardsPlayedCount++;
+                let suitState = room.boardState[move.card.suit];
+                if (move.side === 'max') {
+                    suitState.max = move.card.value;
+                    if (room.cardsPlayedCount <= 3) suitState.jokerMax = true;
+                } else {
+                    suitState.min = move.card.value;
+                    if (room.cardsPlayedCount <= 3) suitState.jokerMin = true;
+                }
+
+                room.lastAction = { type: 'play', playerName: bot.name, card: move.card, side: move.side };
+                room.lastActionTime = Date.now();
+
+                let playedCardWasFacedown = bot.buffer[move.bIndex].revealedThisTurn || false;
+                bot.replaceIndex = move.bIndex;
+                bot.buffer.splice(move.bIndex, 1);
+
+                let isWin = Object.values(room.boardState).every(s => s.min === 1 && s.max === 13);
+                if (isWin) {
+                    room.gamePhase = 'gameover';
+                    room.markModified('players');
+                    room.markModified('boardState');
+                    await room.save();
+                    io.to(roomName).emit('boardUpdated', room);
+                    io.to(roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
+                    room.players.forEach(p => {
+                        if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`);
+                    });
+                    return;
+                }
+
+                if (bot.hand.length > 0) {
+                    bot.mustReplace = true;
+                    bot.replaceFacedown = playedCardWasFacedown;
+                    room.markModified('players');
+                    room.markModified('boardState');
+                    await room.save();
+                    io.to(roomName).emit('boardUpdated', room);
+                    io.to(roomName).emit('updatePlayers', room);
+                    
+                    // Boten måste nu fylla på sitt kort, trigga turen igen direkt!
+                    playBotTurn(roomName, botIndex);
+                } else {
+                    room.markModified('players');
+                    room.markModified('boardState');
+                    await room.save();
+                    await nextTurn(room);
+                }
+                return;
+            }
+
+            // TAKTIK 4: PANIK (Blockerad bot)
+            let facedownIndices = [];
+            let faceupIndices = [];
+            bot.buffer.forEach((c, i) => {
+                if (c.isFacedown) facedownIndices.push(i);
+                else faceupIndices.push(i);
+            });
+
+            if (facedownIndices.length > 0) {
+                // Välj ett nedvänt kort att gissa på
+                let bIndex = facedownIndices[Math.floor(Math.random() * facedownIndices.length)];
+                let actualCard = bot.buffer[bIndex];
+                
+                // 75% chans att minnas rätt!
+                let guessCorrect = Math.random() < 0.75; 
+
+                // Visa kortet för alla i rummet i 3 sekunder!
+                io.to(roomName).emit('showTempReveal', { roomName, pIndex: botIndex, bIndex, card: actualCard, nextState: 'normal' });
+
+                // Vänta medan alla kollar på kortet
+                setTimeout(async () => {
+                    let r2 = await Room.findOne({ roomName });
+                    if (!r2) return;
+                    let b2 = r2.players[botIndex];
+
+                    let playInfo = isCardPlayable(actualCard);
+
+                    if (guessCorrect && playInfo) {
+                        // Boten gissade rätt OCH det passade!
+                        b2.buffer[bIndex].isFacedown = false;
+                        b2.buffer[bIndex].revealedThisTurn = true;
+                        r2.markModified('players');
+                        await r2.save();
+                        io.to(roomName).emit('updatePlayers', r2);
+                        
+                        // Kör botens runda igen så den lägger ner det uppvända kortet
+                        playBotTurn(roomName, botIndex); 
+                    } else {
+                        // Gissade fel, ELLER gissade rätt men det passade inte -> Dags för straff!
+                        await applyBotPenalty(r2, botIndex, (guessCorrect && !playInfo), bIndex);
+                    }
+                }, 3500);
+
+            } else {
+                // Helt blockerad (inga nedvända kort kvar). Ta straff direkt.
+                if (faceupIndices.length > 0) {
+                    await applyBotPenalty(room, botIndex, false, null);
+                } else {
+                    // Mercy rule - spelet förloras
+                    room.gamePhase = 'gameover';
+                    await room.save();
+                    io.to(roomName).emit('gameEnded', { msg: `${bot.name} is completely stuck and out of options. You lost!` });
+                    room.players.forEach(p => {
+                        if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} is stuck. You lost!`);
+                    });
+                }
+            }
+
+        }, 2500); 
+    }
+
+    // Hjälpfunktion för att applicera botens straff
+    async function applyBotPenalty(room, botIndex, needsRevert, revertIndex) {
+        let bot = room.players[botIndex];
+        let faceupIndices = [];
+        bot.buffer.forEach((c, i) => {
+            if (!c.isFacedown && i !== revertIndex) faceupIndices.push(i);
+        });
+
+        if (faceupIndices.length === 0) {
+            room.gamePhase = 'gameover';
+            await room.save();
+            io.to(room.roomName).emit('gameEnded', { msg: `${bot.name} failed and has no cards to take a penalty with. You lost!` });
+            room.players.forEach(p => {
+                if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} failed. You lost!`);
+            });
+            return;
+        }
+
+        // Välj ett slumpmässigt uppvänt kort att vända ner
+        let penaltyIndex = faceupIndices[Math.floor(Math.random() * faceupIndices.length)];
+        bot.buffer[penaltyIndex].isFacedown = true;
+        
+        if (needsRevert && revertIndex !== null) {
+            bot.buffer[revertIndex].isFacedown = true;
+            bot.buffer[revertIndex].revealedThisTurn = false;
+        }
+
+        room.markModified('players');
+        await room.save();
+        await nextTurn(room);
     }
 
     // --- HANDLE PLAYER LEAVE ---
@@ -591,7 +802,7 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================
-// 6. VAKTMÄSTAREN - Städar gamla rum (72 timmar)
+// 7. VAKTMÄSTAREN - Städar gamla rum (72 timmar)
 // ==========================================
 setInterval(async () => {
     const expireTime = Date.now() - (72 * 60 * 60 * 1000); 
