@@ -499,7 +499,7 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - V5 (Scenario A & B Logik)
+    // 6. BOT INTELLIGENS (AI) - V6 (Förfinad Logik - Inga jokerflytt i fredstid)
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
         setTimeout(async () => {
@@ -508,7 +508,7 @@ io.on('connection', (socket) => {
 
             let bot = room.players[botIndex];
 
-            // 1. SMART PÅFYLLNING FRÅN HANDEN (Behållen logik)
+            // 1. SMART PÅFYLLNING FRÅN HANDEN
             if (bot.mustReplace) {
                 io.to(roomName).emit('botTaunt', `${bot.name} is selecting a card from their hand.`);
                 
@@ -659,7 +659,7 @@ io.on('connection', (socket) => {
 
             if (!chosenAction && myPlayableEngines.length > 0) {
                 if (allTeammatesCanPlay) {
-                    // SCENARIO A: Alla mår bra
+                    // SCENARIO A: Alla mår bra (INGA JOKERFLYTT TILLÅTNA)
                     
                     // A1: Gör att eget kort blir spelbart
                     for (let eng of myPlayableEngines) {
@@ -684,18 +684,7 @@ io.on('connection', (socket) => {
                         }
                     }
 
-                    // A3: Flytta joker så nästa spelare kan ytterligare ett kort
-                    if (!chosenAction && jokersActive) {
-                        let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
-                            return getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState);
-                        });
-                        if (jokerMove) {
-                            chosenAction = jokerMove;
-                            tauntMsg = `${bot.name} moves a joker to help the next player.`;
-                        }
-                    }
-
-                    // A4: Spela valfritt kort (Öppna först eftersom de är sorterade)
+                    // A3: Spela valfritt kort (Öppna först eftersom de är sorterade)
                     if (!chosenAction) {
                         chosenAction = { type: 'play', engine: myPlayableEngines[0] };
                         tauntMsg = `${bot.name} plays a card.`;
@@ -795,7 +784,6 @@ io.on('connection', (socket) => {
                     let r2 = await Room.findOne({ roomName: room.roomName });
                     if (!r2) return;
                     
-                    // Kollar om det gissade kortet FAKTISKT går att spela nu (mockActions från panik går inte)
                     let checkPlayability = (c, board) => {
                         let state = board[c.suit];
                         if (c.value === state.min - 1 && !state.jokerMin) return 'min';
