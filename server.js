@@ -91,7 +91,7 @@ function shuffle(array) {
     return array;
 }
 
-// NY HJÄLPFUNKTION: Sömn-funktion för linjär asynkronisering (Lösning A2)
+// Sömn-funktion för linjär asynkronisering
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function startRoundLogic(room) {
@@ -502,10 +502,10 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - Asynkront Flöde (Med Lösning A2 & C)
+    // 6. BOT INTELLIGENS (AI) - Stabiliserad
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
-        await sleep(1000); // Liten andningspaus innan den analyserar
+        await sleep(1000); 
 
         let room;
         try {
@@ -522,7 +522,7 @@ io.on('connection', (socket) => {
         if (bot.mustReplace) {
             io.to(roomName).emit('botTaunt', `${bot.name} is selecting a card from their hand.`);
             
-            await sleep(2500); // Spänningspaus för dragningen
+            await sleep(2500); 
             
             try {
                 let r2 = await Room.findOne({ roomName });
@@ -540,7 +540,6 @@ io.on('connection', (socket) => {
                     let nextValOut = (c.value >= 7) ? c.value + 1 : c.value - 1;
                     let helpsFriend = false;
                     
-                    // Kolla bara vänner som inte gått i mål (har kort kvar i buffer)
                     for (let i = 1; i < r2.players.length; i++) {
                         let fIndex = (botIndex + i) % r2.players.length;
                         let friend = r2.players[fIndex];
@@ -561,10 +560,10 @@ io.on('connection', (socket) => {
                 r2.markModified('players'); 
                 await r2.save(); 
                 
-                // LÖSNING C: Skicka BARA boardUpdated här, inte updatePlayers. Dubbla emits bygger upp köer.
+                // BUGGFIX 1: Uppdatera båda för att undvika "Spök-kort" i handen
                 io.to(roomName).emit('boardUpdated', r2);
+                io.to(roomName).emit('updatePlayers', r2);
                 
-                // LÖSNING A2: Använd linjär sleep för att säkra tråden innan turen går vidare
                 await sleep(1500);
                 
                 let r3 = await Room.findOne({ roomName });
@@ -673,7 +672,9 @@ io.on('connection', (socket) => {
         }
 
         if (!chosenAction && myPlayableEngines.length > 0) {
+            
             if (allTeammatesCanPlay || activeTeammates.length === 0) {
+                // SCENARIO A: Fredstid (Inga jokerdrag!)
                 for (let eng of myPlayableEngines) {
                     let nextBoard = simulatePlay(room.boardState, eng);
                     let unlocksOwn = false;
@@ -702,22 +703,13 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                if (!chosenAction && nextPlayer && jokersActive) {
-                    let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
-                        return getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState);
-                    });
-                    if (jokerMove) {
-                        chosenAction = jokerMove;
-                        tauntMsg = `${bot.name} moves a joker to assist a teammate.`;
-                    }
-                }
-
                 if (!chosenAction) {
                     chosenAction = { type: 'play', engine: myPlayableEngines[0] };
                     tauntMsg = `${bot.name} plays a card.`;
                 }
 
             } else {
+                // SCENARIO B: Krishantering
                 for (let eng of myPlayableEngines) {
                     let nextBoard = simulatePlay(room.boardState, eng);
                     if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
@@ -744,7 +736,6 @@ io.on('connection', (socket) => {
             }
         }
 
-        // LÖSNING A2: Rak sekvensiell hantering av action-avslut
         if (chosenAction) {
             if (!chosenAction.engine.isFacedown) {
                 io.to(roomName).emit('botTaunt', tauntMsg);
@@ -758,7 +749,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // PANIK (Noll spelbara kort)
+        // PANIK
         let facedownIndices = [];
         let faceupIndices = [];
         bot.buffer.forEach((c, i) => {
@@ -820,7 +811,6 @@ io.on('connection', (socket) => {
                 r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
                 r2.markModified('players');
                 await r2.save();
-                
                 io.to(r2.roomName).emit('updatePlayers', r2);
                 
                 await sleep(2500);
@@ -901,6 +891,7 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
+            io.to(room.roomName).emit('updatePlayers', room);
             
             await sleep(3000);
             await playBotTurn(room.roomName, botIndex);
@@ -908,6 +899,7 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
+            io.to(room.roomName).emit('updatePlayers', room); // BUGGFIX 1 (Igen)
             
             await sleep(3000);
             let r2 = await Room.findOne({ roomName: room.roomName });
