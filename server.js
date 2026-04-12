@@ -91,6 +91,9 @@ function shuffle(array) {
     return array;
 }
 
+// NY HJÄLPFUNKTION: Sömn-funktion för linjär asynkronisering (Lösning A2)
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function startRoundLogic(room) {
     room.gamePhase = 'setup';
     room.currentTurn = -1; 
@@ -499,273 +502,289 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - V6 (Förfinad Logik - Inga jokerflytt i fredstid)
+    // 6. BOT INTELLIGENS (AI) - Asynkront Flöde (Med Lösning A2 & C)
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
-        setTimeout(async () => {
-            let room = await Room.findOne({ roomName });
+        await sleep(1000); // Liten andningspaus innan den analyserar
+
+        let room;
+        try {
+            room = await Room.findOne({ roomName });
             if (!room || room.gamePhase !== 'playing' || room.currentTurn !== botIndex) return;
+        } catch (e) {
+            console.error("AI: Room fetch error", e);
+            return;
+        }
 
-            let bot = room.players[botIndex];
+        let bot = room.players[botIndex];
 
-            // 1. SMART PÅFYLLNING FRÅN HANDEN
-            if (bot.mustReplace) {
-                io.to(roomName).emit('botTaunt', `${bot.name} is selecting a card from their hand.`);
+        // 1. SMART PÅFYLLNING FRÅN HANDEN
+        if (bot.mustReplace) {
+            io.to(roomName).emit('botTaunt', `${bot.name} is selecting a card from their hand.`);
+            
+            await sleep(2500); // Spänningspaus för dragningen
+            
+            try {
+                let r2 = await Room.findOne({ roomName });
+                if (!r2) return;
+                let b2 = r2.players[botIndex];
+
+                let bestIndex = 0; let bestScore = -999;
+                b2.hand.forEach((c, index) => {
+                    let state = r2.boardState[c.suit];
+                    let distance = 99; 
+                    if (c.value > state.max) distance = c.value - state.max;
+                    else if (c.value < state.min) distance = state.min - c.value;
+
+                    let score = 100 - distance; 
+                    let nextValOut = (c.value >= 7) ? c.value + 1 : c.value - 1;
+                    let helpsFriend = false;
+                    
+                    // Kolla bara vänner som inte gått i mål (har kort kvar i buffer)
+                    for (let i = 1; i < r2.players.length; i++) {
+                        let fIndex = (botIndex + i) % r2.players.length;
+                        let friend = r2.players[fIndex];
+                        if (friend.buffer.length > 0 && friend.buffer.some(fc => !fc.isFacedown && fc.suit === c.suit && fc.value === nextValOut)) {
+                            helpsFriend = true; break;
+                        }
+                    }
+                    if (helpsFriend) score += 50; 
+                    if (score > bestScore) { bestScore = score; bestIndex = index; }
+                });
+
+                let card = b2.hand.splice(bestIndex, 1)[0];
+                card.isFacedown = b2.replaceFacedown; 
+                let insertAt = (b2.replaceIndex !== undefined) ? b2.replaceIndex : b2.buffer.length;
+                b2.buffer.splice(insertAt, 0, card);
+                b2.mustReplace = false; delete b2.replaceIndex; 
                 
-                setTimeout(async () => {
-                    let r2 = await Room.findOne({ roomName });
-                    if (!r2) return;
-                    let b2 = r2.players[botIndex];
+                r2.markModified('players'); 
+                await r2.save(); 
+                
+                // LÖSNING C: Skicka BARA boardUpdated här, inte updatePlayers. Dubbla emits bygger upp köer.
+                io.to(roomName).emit('boardUpdated', r2);
+                
+                // LÖSNING A2: Använd linjär sleep för att säkra tråden innan turen går vidare
+                await sleep(1500);
+                
+                let r3 = await Room.findOne({ roomName });
+                if(r3) await nextTurn(r3); 
+                
+            } catch(e) {
+                console.error("AI Refill Error", e);
+            }
+            return;
+        }
 
-                    let bestIndex = 0; let bestScore = -999;
-                    b2.hand.forEach((c, index) => {
-                        let state = r2.boardState[c.suit];
-                        let distance = 99; 
-                        if (c.value > state.max) distance = c.value - state.max;
-                        else if (c.value < state.min) distance = state.min - c.value;
+        // --- HJÄLPFUNKTIONER FÖR AI ---
+        const checkPlayability = (c, board) => {
+            let state = board[c.suit];
+            if (c.value === state.min - 1 && !state.jokerMin) return 'min';
+            if (c.value === state.max + 1 && !state.jokerMax) return 'max';
+            return null;
+        };
 
-                        let score = 100 - distance; 
-                        let nextValOut = (c.value >= 7) ? c.value + 1 : c.value - 1;
-                        let helpsFriend = false;
-                        for (let i = 1; i < r2.players.length; i++) {
-                            let fIndex = (botIndex + i) % r2.players.length;
-                            let friend = r2.players[fIndex];
-                            if (friend.buffer.some(fc => !fc.isFacedown && fc.suit === c.suit && fc.value === nextValOut)) {
-                                helpsFriend = true; break;
-                            }
-                        }
-                        if (helpsFriend) score += 50; 
-                        if (score > bestScore) { bestScore = score; bestIndex = index; }
+        const getOpenPlayableCount = (player, board) => {
+            let count = 0;
+            player.buffer.forEach(c => { if (!c.isFacedown && checkPlayability(c, board)) count++; });
+            return count;
+        };
+
+        const simulatePlay = (board, engine) => {
+            let nextBoard = JSON.parse(JSON.stringify(board));
+            if (engine.side === 'min') nextBoard[engine.card.suit].min = engine.card.value;
+            if (engine.side === 'max') nextBoard[engine.card.suit].max = engine.card.value;
+            return nextBoard;
+        };
+
+        const simulateJoker = (board, jFrom, jTo) => {
+            let nextBoard = JSON.parse(JSON.stringify(board));
+            if (jFrom.side === 'min') nextBoard[jFrom.suit].jokerMin = false;
+            if (jFrom.side === 'max') nextBoard[jFrom.suit].jokerMax = false;
+            if (jTo.side === 'min') nextBoard[jTo.suit].jokerMin = true;
+            if (jTo.side === 'max') nextBoard[jTo.suit].jokerMax = true;
+            if (jTo.side === 'center') nextBoard[jTo.suit].jokerCenter = true;
+            return nextBoard;
+        };
+
+        let myPlayableEngines = [];
+        bot.buffer.forEach((c, bIndex) => {
+            let side = checkPlayability(c, room.boardState);
+            if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
+        });
+        myPlayableEngines.sort((a, b) => (a.isFacedown ? 1 : 0) - (b.isFacedown ? 1 : 0));
+
+        let jokersActive = room.cardsPlayedCount >= 3;
+        
+        let activeTeammates = [];
+        for (let i = 1; i < room.players.length; i++) {
+            let t = room.players[(botIndex + i) % room.players.length];
+            if (t.hand.length > 0 || t.buffer.length > 0) activeTeammates.push(t);
+        }
+        
+        let nextPlayer = activeTeammates.length > 0 ? activeTeammates[0] : null;
+        let allTeammatesCanPlay = activeTeammates.every(t => getOpenPlayableCount(t, room.boardState) > 0);
+        let targetPlayerInCrisis = activeTeammates.find(t => getOpenPlayableCount(t, room.boardState) === 0);
+
+        function findBestJokerMove(boardState, engine, conditionFn) {
+            let movableJokers = [];
+            ['♠', '♥', '♣', '♦'].forEach(s => {
+                if (boardState[s].jokerMin) movableJokers.push({suit: s, side: 'min'});
+                if (boardState[s].jokerMax) movableJokers.push({suit: s, side: 'max'});
+            });
+
+            let targets = [];
+            ['♠', '♥', '♣', '♦'].forEach(s => {
+                let state = boardState[s];
+                if (state.min === 1 && state.max === 13 && !state.jokerCenter) targets.push({suit: s, side: 'center', prio: 1});
+                else {
+                    if (state.min > 1 && !state.jokerMin) targets.push({suit: s, side: 'min', prio: 2});
+                    if (state.max < 13 && !state.jokerMax) targets.push({suit: s, side: 'max', prio: 2});
+                }
+            });
+            targets.sort((a, b) => a.prio - b.prio);
+
+            for (let jFrom of movableJokers) {
+                for (let jTo of targets) {
+                    let nextBoard = simulateJoker(boardState, jFrom, jTo);
+                    
+                    let sabotage = false;
+                    for (let t of activeTeammates) {
+                        let before = getOpenPlayableCount(t, boardState);
+                        let after = getOpenPlayableCount(t, nextBoard);
+                        if (before > 0 && after === 0) { sabotage = true; break; }
+                    }
+                    if (sabotage) continue; 
+
+                    if (conditionFn(nextBoard)) {
+                        return { type: 'joker', engine: engine, jFrom, jTo };
+                    }
+                }
+            }
+            return null;
+        }
+
+        let chosenAction = null;
+        let tauntMsg = "";
+
+        if (bot.buffer.length === 1 && bot.hand.length === 0 && myPlayableEngines.length === 1) {
+            chosenAction = { type: 'play', engine: myPlayableEngines[0] };
+            tauntMsg = `${bot.name} plays their final card!`;
+        }
+
+        if (!chosenAction && myPlayableEngines.length > 0) {
+            if (allTeammatesCanPlay || activeTeammates.length === 0) {
+                for (let eng of myPlayableEngines) {
+                    let nextBoard = simulatePlay(room.boardState, eng);
+                    let unlocksOwn = false;
+                    bot.buffer.forEach((c, idx) => {
+                        if (idx !== eng.bIndex && !checkPlayability(c, room.boardState) && checkPlayability(c, nextBoard)) unlocksOwn = true;
+                    });
+                    bot.hand.forEach(hc => {
+                        if (checkPlayability(hc, nextBoard)) unlocksOwn = true;
                     });
 
-                    let card = b2.hand.splice(bestIndex, 1)[0];
-                    card.isFacedown = b2.replaceFacedown; 
-                    let insertAt = (b2.replaceIndex !== undefined) ? b2.replaceIndex : b2.buffer.length;
-                    b2.buffer.splice(insertAt, 0, card);
-                    b2.mustReplace = false; delete b2.replaceIndex; 
-                    
-                    r2.markModified('players'); await r2.save(); 
-                    
-                    io.to(roomName).emit('boardUpdated', r2);
-                    io.to(roomName).emit('updatePlayers', r2);
-                    setTimeout(async () => { 
-                        let r3 = await Room.findOne({ roomName });
-                        if(r3) await nextTurn(r3); 
-                    }, 1500);
-
-                }, 2500);
-                return;
-            }
-
-            // --- HJÄLPFUNKTIONER ---
-            const checkPlayability = (c, board) => {
-                let state = board[c.suit];
-                if (c.value === state.min - 1 && !state.jokerMin) return 'min';
-                if (c.value === state.max + 1 && !state.jokerMax) return 'max';
-                return null;
-            };
-
-            const getOpenPlayableCount = (player, board) => {
-                let count = 0;
-                player.buffer.forEach(c => { if (!c.isFacedown && checkPlayability(c, board)) count++; });
-                return count;
-            };
-
-            const simulatePlay = (board, engine) => {
-                let nextBoard = JSON.parse(JSON.stringify(board));
-                if (engine.side === 'min') nextBoard[engine.card.suit].min = engine.card.value;
-                if (engine.side === 'max') nextBoard[engine.card.suit].max = engine.card.value;
-                return nextBoard;
-            };
-
-            const simulateJoker = (board, jFrom, jTo) => {
-                let nextBoard = JSON.parse(JSON.stringify(board));
-                if (jFrom.side === 'min') nextBoard[jFrom.suit].jokerMin = false;
-                if (jFrom.side === 'max') nextBoard[jFrom.suit].jokerMax = false;
-                if (jTo.side === 'min') nextBoard[jTo.suit].jokerMin = true;
-                if (jTo.side === 'max') nextBoard[jTo.suit].jokerMax = true;
-                if (jTo.side === 'center') nextBoard[jTo.suit].jokerCenter = true;
-                return nextBoard;
-            };
-
-            // Hitta alla AI:ns egna spelbara kort (Öppna och Dolda)
-            let myPlayableEngines = [];
-            bot.buffer.forEach((c, bIndex) => {
-                let side = checkPlayability(c, room.boardState);
-                if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
-            });
-            // Sortera: Öppna först, Dolda sist
-            myPlayableEngines.sort((a, b) => (a.isFacedown ? 1 : 0) - (b.isFacedown ? 1 : 0));
-
-            let jokersActive = room.cardsPlayedCount >= 3;
-            
-            let teammates = [];
-            for (let i = 1; i < room.players.length; i++) {
-                teammates.push(room.players[(botIndex + i) % room.players.length]);
-            }
-            let nextPlayer = teammates[0];
-            
-            // Analysera Scenarion
-            let allTeammatesCanPlay = teammates.every(t => getOpenPlayableCount(t, room.boardState) > 0);
-            let targetPlayer = teammates.find(t => getOpenPlayableCount(t, room.boardState) === 0);
-
-            function findBestJokerMove(boardState, engine, conditionFn) {
-                let movableJokers = [];
-                ['♠', '♥', '♣', '♦'].forEach(s => {
-                    if (boardState[s].jokerMin) movableJokers.push({suit: s, side: 'min'});
-                    if (boardState[s].jokerMax) movableJokers.push({suit: s, side: 'max'});
-                });
-
-                let targets = [];
-                ['♠', '♥', '♣', '♦'].forEach(s => {
-                    let state = boardState[s];
-                    if (state.min === 1 && state.max === 13 && !state.jokerCenter) targets.push({suit: s, side: 'center', prio: 1});
-                    else {
-                        if (state.min > 1 && !state.jokerMin) targets.push({suit: s, side: 'min', prio: 2});
-                        if (state.max < 13 && !state.jokerMax) targets.push({suit: s, side: 'max', prio: 2});
-                    }
-                });
-                targets.sort((a, b) => a.prio - b.prio);
-
-                for (let jFrom of movableJokers) {
-                    for (let jTo of targets) {
-                        let nextBoard = simulateJoker(boardState, jFrom, jTo);
-                        
-                        // Sabotage-kontroll: Förstör detta för NÅGON kompis?
-                        let sabotage = false;
-                        for (let t of teammates) {
-                            let before = getOpenPlayableCount(t, boardState);
-                            let after = getOpenPlayableCount(t, nextBoard);
-                            if (before > 0 && after === 0) { sabotage = true; break; }
-                        }
-                        if (sabotage) continue;
-
-                        if (conditionFn(nextBoard)) {
-                            return { type: 'joker', engine: engine, jFrom, jTo };
-                        }
+                    if (unlocksOwn) { 
+                        chosenAction = { type: 'play', engine: eng }; 
+                        tauntMsg = `${bot.name} plays a card to set up their next move.`;
+                        break; 
                     }
                 }
-                return null;
-            }
-
-            let chosenAction = null;
-            let tauntMsg = "";
-
-            // 0. ULTIMAT PRIO: Spela allra sista kortet
-            if (bot.buffer.length === 1 && bot.hand.length === 0 && myPlayableEngines.length === 1) {
-                chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                tauntMsg = `${bot.name} plays their final card!`;
-            }
-
-            if (!chosenAction && myPlayableEngines.length > 0) {
-                if (allTeammatesCanPlay) {
-                    // SCENARIO A: Alla mår bra (INGA JOKERFLYTT TILLÅTNA)
-                    
-                    // A1: Gör att eget kort blir spelbart
+                
+                if (!chosenAction && nextPlayer) {
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
-                        let unlocksOwn = bot.buffer.some((c, idx) => idx !== eng.bIndex && !checkPlayability(c, room.boardState) && checkPlayability(c, nextBoard));
-                        if (unlocksOwn) { 
+                        if (getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState)) {
                             chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays a card to set up their next move.`;
+                            tauntMsg = `${bot.name} plays a card to give the next player more options.`;
                             break; 
                         }
                     }
-                    
-                    // A2: Hjälper nästa spelare att spela Ytterligare ett kort
-                    if (!chosenAction) {
-                        for (let eng of myPlayableEngines) {
-                            let nextBoard = simulatePlay(room.boardState, eng);
-                            if (getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState)) {
-                                chosenAction = { type: 'play', engine: eng }; 
-                                tauntMsg = `${bot.name} plays a card to give the next player more options.`;
-                                break; 
-                            }
-                        }
-                    }
+                }
 
-                    // A3: Spela valfritt kort (Öppna först eftersom de är sorterade)
-                    if (!chosenAction) {
-                        chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                        tauntMsg = `${bot.name} plays a card.`;
-                    }
-
-                } else {
-                    // SCENARIO B: Någon är låst
-                    
-                    // B1: Spela kort för att låsa upp spelaren i nöd
-                    for (let eng of myPlayableEngines) {
-                        let nextBoard = simulatePlay(room.boardState, eng);
-                        if (getOpenPlayableCount(targetPlayer, nextBoard) > 0) {
-                            chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays a card to rescue a blocked teammate.`;
-                            break; 
-                        }
-                    }
-
-                    // B2: Flytta joker för att låsa upp spelaren i nöd
-                    if (!chosenAction && jokersActive) {
-                        let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
-                            return getOpenPlayableCount(targetPlayer, nextBoard) > 0;
-                        }); 
-                        if (jokerMove) {
-                            chosenAction = jokerMove;
-                            tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
-                        }
-                    }
-
-                    // B3: Spela valfritt kort
-                    if (!chosenAction) {
-                        chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                        tauntMsg = `${bot.name} plays a card.`;
+                if (!chosenAction && nextPlayer && jokersActive) {
+                    let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
+                        return getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState);
+                    });
+                    if (jokerMove) {
+                        chosenAction = jokerMove;
+                        tauntMsg = `${bot.name} moves a joker to assist a teammate.`;
                     }
                 }
-            }
 
-            // UTFÖR DRAG ELLER PANIK
-            if (chosenAction) {
-                if (!chosenAction.engine.isFacedown) {
-                    io.to(roomName).emit('botTaunt', tauntMsg);
-                    setTimeout(async () => {
-                        let r2 = await Room.findOne({ roomName });
-                        if(r2) await executeBotAction(r2, botIndex, chosenAction);
-                    }, 3000);
-                } else {
-                    await executeBotAction(room, botIndex, chosenAction);
+                if (!chosenAction) {
+                    chosenAction = { type: 'play', engine: myPlayableEngines[0] };
+                    tauntMsg = `${bot.name} plays a card.`;
                 }
-                return;
-            }
 
-            // PANIK: Noll spelbara kort totalt
-            let facedownIndices = [];
-            let faceupIndices = [];
-            bot.buffer.forEach((c, i) => {
-                if (c.isFacedown) facedownIndices.push(i);
-                else faceupIndices.push(i);
-            });
-
-            if (facedownIndices.length > 0) {
-                let bIndex = facedownIndices[Math.floor(Math.random() * facedownIndices.length)];
-                let mockAction = { type: 'play', engine: { card: bot.buffer[bIndex], bIndex: bIndex, isFacedown: true } };
-                await executeBotAction(room, botIndex, mockAction);
             } else {
-                if (faceupIndices.length > 0) {
-                    io.to(roomName).emit('botTaunt', `${bot.name} is completely blocked and must take a penalty.`);
-                    setTimeout(async () => {
-                        let r2 = await Room.findOne({ roomName });
-                        if(r2) await applyBotPenalty(r2, botIndex, false, null);
-                    }, 3500); 
-                } else {
-                    room.gamePhase = 'gameover';
-                    await room.save();
-                    io.to(roomName).emit('gameEnded', { msg: `${bot.name} is completely stuck and out of options. You lost!` });
-                    room.players.forEach(p => {
-                        if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} is stuck. You lost!`);
-                    });
+                for (let eng of myPlayableEngines) {
+                    let nextBoard = simulatePlay(room.boardState, eng);
+                    if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
+                        chosenAction = { type: 'play', engine: eng }; 
+                        tauntMsg = `${bot.name} plays a card to rescue a blocked teammate.`;
+                        break; 
+                    }
+                }
+
+                if (!chosenAction && jokersActive) {
+                    let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
+                        return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
+                    }); 
+                    if (jokerMove) {
+                        chosenAction = jokerMove;
+                        tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                    }
+                }
+
+                if (!chosenAction) {
+                    chosenAction = { type: 'play', engine: myPlayableEngines[0] };
+                    tauntMsg = `${bot.name} plays a card.`;
                 }
             }
+        }
 
-        }, 1000); 
+        // LÖSNING A2: Rak sekvensiell hantering av action-avslut
+        if (chosenAction) {
+            if (!chosenAction.engine.isFacedown) {
+                io.to(roomName).emit('botTaunt', tauntMsg);
+                await sleep(3000);
+                
+                let r2 = await Room.findOne({ roomName });
+                if(r2) await executeBotAction(r2, botIndex, chosenAction);
+            } else {
+                await executeBotAction(room, botIndex, chosenAction);
+            }
+            return;
+        }
+
+        // PANIK (Noll spelbara kort)
+        let facedownIndices = [];
+        let faceupIndices = [];
+        bot.buffer.forEach((c, i) => {
+            if (c.isFacedown) facedownIndices.push(i);
+            else faceupIndices.push(i);
+        });
+
+        if (facedownIndices.length > 0) {
+            let bIndex = facedownIndices[Math.floor(Math.random() * facedownIndices.length)];
+            let mockAction = { type: 'play', engine: { card: bot.buffer[bIndex], bIndex: bIndex, isFacedown: true } };
+            await executeBotAction(room, botIndex, mockAction);
+        } else {
+            if (faceupIndices.length > 0) {
+                io.to(roomName).emit('botTaunt', `${bot.name} is completely blocked and must take a penalty.`);
+                await sleep(3500); 
+                let r2 = await Room.findOne({ roomName });
+                if(r2) await applyBotPenalty(r2, botIndex, false, null);
+            } else {
+                room.gamePhase = 'gameover';
+                await room.save();
+                io.to(roomName).emit('gameEnded', { msg: `${bot.name} is completely stuck and out of options. You lost!` });
+                room.players.forEach(p => {
+                    if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} is stuck. You lost!`);
+                });
+            }
+        }
     }
 
     async function executeBotAction(room, botIndex, action) {
@@ -777,51 +796,50 @@ io.on('connection', (socket) => {
             
             io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down card...`);
 
-            setTimeout(() => {
-                io.to(room.roomName).emit('showTempReveal', { roomName: room.roomName, pIndex: botIndex, bIndex: engine.bIndex, card: engine.card, nextState: 'normal' });
+            await sleep(2500);
 
-                setTimeout(async () => {
-                    let r2 = await Room.findOne({ roomName: room.roomName });
-                    if (!r2) return;
-                    
-                    let checkPlayability = (c, board) => {
-                        let state = board[c.suit];
-                        if (c.value === state.min - 1 && !state.jokerMin) return 'min';
-                        if (c.value === state.max + 1 && !state.jokerMax) return 'max';
-                        return null;
-                    };
-                    let isPlayable = checkPlayability(engine.card, r2.boardState) !== null;
+            io.to(room.roomName).emit('showTempReveal', { roomName: room.roomName, pIndex: botIndex, bIndex: engine.bIndex, card: engine.card, nextState: 'normal' });
 
-                    if (guessCorrect && isPlayable) { 
-                        io.to(r2.roomName).emit('botTaunt', `${bot.name} correctly remembered the card.`);
-                        
-                        r2.players[botIndex].buffer[engine.bIndex].isFacedown = false;
-                        r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
-                        r2.markModified('players');
-                        await r2.save();
-                        io.to(r2.roomName).emit('updatePlayers', r2);
-                        
-                        setTimeout(() => {
-                            if (action.type === 'joker') finalizeBotJoker(r2, botIndex, action.jFrom, action.jTo);
-                            else finalizeBotPlay(r2, botIndex, engine);
-                        }, 2500);
+            await sleep(3500);
+            
+            let r2 = await Room.findOne({ roomName: room.roomName });
+            if (!r2) return;
+            
+            let checkPlayability = (c, board) => {
+                let state = board[c.suit];
+                if (c.value === state.min - 1 && !state.jokerMin) return 'min';
+                if (c.value === state.max + 1 && !state.jokerMax) return 'max';
+                return null;
+            };
+            let isPlayable = checkPlayability(engine.card, r2.boardState) !== null;
 
-                    } else {
-                        if (!guessCorrect) {
-                            io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and takes a penalty.`);
-                        } else {
-                            io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Taking a penalty.`);
-                        }
-                        
-                        await applyBotPenalty(r2, botIndex, (guessCorrect && !isPlayable), engine.bIndex);
-                    }
-                }, 3500); 
+            if (guessCorrect && isPlayable) { 
+                io.to(r2.roomName).emit('botTaunt', `${bot.name} correctly remembered the card.`);
+                
+                r2.players[botIndex].buffer[engine.bIndex].isFacedown = false;
+                r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
+                r2.markModified('players');
+                await r2.save();
+                
+                io.to(r2.roomName).emit('updatePlayers', r2);
+                
+                await sleep(2500);
+                
+                if (action.type === 'joker') await finalizeBotJoker(r2, botIndex, action.jFrom, action.jTo);
+                else await finalizeBotPlay(r2, botIndex, engine);
 
-            }, 2500); 
-
+            } else {
+                if (!guessCorrect) {
+                    io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and takes a penalty.`);
+                } else {
+                    io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Taking a penalty.`);
+                }
+                
+                await applyBotPenalty(r2, botIndex, (guessCorrect && !isPlayable), engine.bIndex);
+            }
         } else {
-            if (action.type === 'joker') finalizeBotJoker(room, botIndex, action.jFrom, action.jTo);
-            else finalizeBotPlay(room, botIndex, engine);
+            if (action.type === 'joker') await finalizeBotJoker(room, botIndex, action.jFrom, action.jTo);
+            else await finalizeBotPlay(room, botIndex, engine);
         }
     }
 
@@ -840,10 +858,9 @@ io.on('connection', (socket) => {
         
         io.to(room.roomName).emit('boardUpdated', room); 
         
-        setTimeout(async () => {
-            let r2 = await Room.findOne({ roomName: room.roomName });
-            if(r2) await nextTurn(r2);
-        }, 3000);
+        await sleep(3000);
+        let r2 = await Room.findOne({ roomName: room.roomName });
+        if(r2) await nextTurn(r2);
     }
 
     async function finalizeBotPlay(room, botIndex, engine) {
@@ -884,18 +901,17 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
-            io.to(room.roomName).emit('updatePlayers', room);
             
-            setTimeout(() => { playBotTurn(room.roomName, botIndex); }, 3000);
+            await sleep(3000);
+            await playBotTurn(room.roomName, botIndex);
         } else {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
             
-            setTimeout(async () => {
-                let r2 = await Room.findOne({ roomName: room.roomName });
-                if(r2) await nextTurn(r2);
-            }, 3000);
+            await sleep(3000);
+            let r2 = await Room.findOne({ roomName: room.roomName });
+            if(r2) await nextTurn(r2);
         }
     }
 
@@ -929,10 +945,9 @@ io.on('connection', (socket) => {
         
         io.to(room.roomName).emit('updatePlayers', room); 
         
-        setTimeout(async () => {
-            let r2 = await Room.findOne({ roomName: room.roomName });
-            if(r2) await nextTurn(r2);
-        }, 3000);
+        await sleep(3000);
+        let r2 = await Room.findOne({ roomName: room.roomName });
+        if(r2) await nextTurn(r2);
     }
 
     // --- HANDLE PLAYER LEAVE ---
