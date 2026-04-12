@@ -222,12 +222,20 @@
         .glow-red { box-shadow: 0 0 8px 2px #e74c3c !important; border: 2px solid #e74c3c !important; }
         .glow-yellow { box-shadow: 0 0 8px 2px #f1c40f !important; border: 2px solid #f1c40f !important; }
 
+        /* KORT-SHIMMER */
         @keyframes shimmerAnim {
             0% { box-shadow: 0 0 30px 15px #f1c40f; transform: scale(1.15); background-color: #ffffff; border-color: #f1c40f; }
             100% { box-shadow: 2px 2px 5px rgba(0,0,0,0.5); transform: scale(1); background-color: #fdfae7; border-color: #dcd7b9; }
         }
         .shimmer-effect { animation: shimmerAnim 1.2s ease-out forwards; z-index: 50; }
         
+        /* JOKER-SHIMMER (Ny!) */
+        @keyframes jokerShimmerAnim {
+            0% { box-shadow: 0 0 20px 10px #f1c40f, 0 0 5px #f1c40f inset; transform: translate(-50%, -50%) scale(1.2); border-color: #f1c40f; }
+            100% { box-shadow: 0 0 5px rgba(0,0,0,0.8); transform: translate(-50%, -50%) scale(1); border-color: #333333; }
+        }
+        .joker-shimmer-effect { animation: jokerShimmerAnim 1.2s ease-out forwards; z-index: 50; }
+
         .drop-zone { 
             width: 60px; height: 90px; border: 2px dashed #bdc3c7; border-radius: 5px; margin: 0 10px; 
             display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;
@@ -705,9 +713,6 @@
         let tauntTimeout = null;
         let isTaunting = false;
         
-        const placementTaunts = ["You think you can complete that house? No, I will block that path!", "Oh, you wanted to play there? Too bad. The Joker claims it!", "I'll just put this right here... good luck getting past me!"];
-        const randomTaunts = ["Haha! You will never beat me!", "Are you even trying? This is too easy.", "I can read your faces. You have no idea what to do, do you?", "Tick tock... your precious house is falling apart.", "That was your master plan? Hilarious.", "You might as well give up now. The House of Jokers always wins."];
-
         let isMuted = true;
         const bgMusic = document.getElementById('bgMusic');
         
@@ -1221,10 +1226,13 @@
                 localPlayers[activeTurn].buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
             }
             let jokersActive = myTurnHasPlayable && cardsPlayedCount >= 3 && interactionState === 'normal';
-            let shimmerSide = null; let shimmerSuit = null;
             
-            // Tiden höjd till 3500ms så man hinner se effekten under botens "tänkepaus"
+            let shimmerSide = null; 
+            let shimmerSuit = null;
+            let shimmerType = null;
+            
             if (roomLastAction && roomLastActionTime && (Date.now() - roomLastActionTime < 3500)) {
+                shimmerType = roomLastAction.type;
                 if (roomLastAction.type === 'play') {
                     shimmerSide = roomLastAction.side; shimmerSuit = roomLastAction.card.suit;
                 } else if (roomLastAction.type === 'joker') {
@@ -1240,11 +1248,16 @@
                 let isCompleteMin = state.min === 1;
                 const minZone = document.createElement('div'); minZone.className = 'drop-zone'; 
                 if (isCompleteMin) minZone.classList.add('completed-zone'); else if (state.min !== 7) minZone.classList.add('played-card');
-                if (shimmerSide === 'min' && shimmerSuit === suit) minZone.classList.add('shimmer-effect');
+                
+                if (shimmerType === 'play' && shimmerSide === 'min' && shimmerSuit === suit) minZone.classList.add('shimmer-effect');
+                
                 if (!isCompleteMin) { minZone.ondrop = (ev) => drop(ev, suit, 'min'); minZone.ondragover = allowDrop; minZone.ondragleave = dragLeave; minZone.onclick = (ev) => handleZoneClick(ev, suit, 'min'); }
                 minZone.innerHTML = createBoardZoneContent(state, 'min', suit);
+                
                 if(state.jokerMin) {
                     let jBadge = document.createElement('div'); jBadge.className = 'joker-badge';
+                    if (shimmerType === 'joker' && shimmerSide === 'min' && shimmerSuit === suit) jBadge.classList.add('joker-shimmer-effect');
+                    
                     if(jokersActive) {
                         jBadge.classList.add('joker-active-badge'); jBadge.draggable = true; jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'min'); jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                         jBadge.onclick = (ev) => clickJoker(ev, suit, 'min'); 
@@ -1254,19 +1267,30 @@
                 }
                 
                 const sevenCard = createCardDOM({ value: 7, suit: suit }); sevenCard.classList.add('center-seven');
-                if (shimmerSide === 'center' && shimmerSuit === suit) sevenCard.classList.add('shimmer-effect');
+                
+                if (shimmerType === 'play' && shimmerSide === 'center' && shimmerSuit === suit) sevenCard.classList.add('shimmer-effect');
+                
                 let suitComplete = (state.min === 1 && state.max === 13);
                 if (suitComplete) { sevenCard.ondrop = (ev) => drop(ev, suit, 'center'); sevenCard.ondragover = allowDrop; sevenCard.ondragleave = dragLeave; sevenCard.onclick = (ev) => handleZoneClick(ev, suit, 'center'); }
-                if (state.jokerCenter) { let jBadge = document.createElement('div'); jBadge.className = 'joker-badge eliminated-joker'; sevenCard.appendChild(jBadge); }
+                if (state.jokerCenter) { 
+                    let jBadge = document.createElement('div'); jBadge.className = 'joker-badge eliminated-joker'; 
+                    if (shimmerType === 'joker' && shimmerSide === 'center' && shimmerSuit === suit) jBadge.classList.add('joker-shimmer-effect');
+                    sevenCard.appendChild(jBadge); 
+                }
                 
                 let isCompleteMax = state.max === 13;
                 const maxZone = document.createElement('div'); maxZone.className = 'drop-zone';
                 if (isCompleteMax) maxZone.classList.add('completed-zone'); else if (state.max !== 7) maxZone.classList.add('played-card');
-                if (shimmerSide === 'max' && shimmerSuit === suit) maxZone.classList.add('shimmer-effect');
+                
+                if (shimmerType === 'play' && shimmerSide === 'max' && shimmerSuit === suit) maxZone.classList.add('shimmer-effect');
+                
                 if (!isCompleteMax) { maxZone.ondrop = (ev) => drop(ev, suit, 'max'); maxZone.ondragover = allowDrop; maxZone.ondragleave = dragLeave; maxZone.onclick = (ev) => handleZoneClick(ev, suit, 'max'); }
                 maxZone.innerHTML = createBoardZoneContent(state, 'max', suit);
+                
                 if(state.jokerMax) {
                     let jBadge = document.createElement('div'); jBadge.className = 'joker-badge';
+                    if (shimmerType === 'joker' && shimmerSide === 'max' && shimmerSuit === suit) jBadge.classList.add('joker-shimmer-effect');
+                    
                     if(jokersActive) {
                         jBadge.classList.add('joker-active-badge'); jBadge.draggable = true; jBadge.ondragstart = (ev) => dragJoker(ev, suit, 'max'); jBadge.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                         jBadge.onclick = (ev) => clickJoker(ev, suit, 'max'); 
@@ -1443,12 +1467,18 @@
 
         socket.on('boardUpdated', (data) => {
             currentBoardState = data.boardState; cardsPlayedCount = data.cardsPlayedCount; roomLastAction = data.lastAction; roomLastActionTime = data.lastActionTime;
-            if (roomLastAction && roomLastActionTime > previousActionTime) {
-                if (roomLastAction.type === 'play' && roomLastAction.playerName) showTemporaryTaunt(`${roomLastAction.playerName} played ${getCardName(roomLastAction.card.value)}${roomLastAction.card.suit}`);
-                else if (roomLastAction.type === 'joker' && roomLastAction.playerName) showTemporaryTaunt(`${roomLastAction.playerName} moved a joker!`);
+            
+            // Paustiderna har vi satt till ca 3 sekunder i servern, därför kollar vi 3500ms
+            if (roomLastAction && roomLastActionTime && (Date.now() - roomLastActionTime < 3500)) {
+                if (roomLastAction.type === 'play' && roomLastAction.playerName && !localPlayers[activeTurn]?.isBot) {
+                    showTemporaryTaunt(`${roomLastAction.playerName} played ${getCardName(roomLastAction.card.value)}${roomLastAction.card.suit}`);
+                } else if (roomLastAction.type === 'joker' && roomLastAction.playerName && !localPlayers[activeTurn]?.isBot) {
+                    showTemporaryTaunt(`${roomLastAction.playerName} moved a joker!`);
+                }
                 previousActionTime = roomLastActionTime;
             }
-            if (cardsPlayedCount > previousCardsPlayedCount && cardsPlayedCount <= 3) {
+            
+            if (cardsPlayedCount > previousCardsPlayedCount && cardsPlayedCount <= 3 && !localPlayers[activeTurn]?.isBot) {
                 let tauntMsg = placementTaunts[Math.floor(Math.random() * placementTaunts.length)]; showTemporaryTaunt(tauntMsg);
             }
             previousCardsPlayedCount = cardsPlayedCount; selectedJokerInfo = null; renderPlayers(); renderBoard();
@@ -1472,7 +1502,8 @@
             localPlayers = data.players; activeTurn = data.currentTurn; gamePhase = data.gamePhase; cardsPlayedCount = data.cardsPlayedCount; previousCardsPlayedCount = cardsPlayedCount; totalTurns = data.totalTurns || 0;
             document.getElementById('turnCountNumber').innerText = totalTurns;
             if (turnChanged || interactionState === 'waiting') { interactionState = 'normal'; cardToRevert = null; }
-            if (turnChanged && cardsPlayedCount > 3 && gamePhase === 'playing') {
+            
+            if (turnChanged && cardsPlayedCount > 3 && gamePhase === 'playing' && !localPlayers[activeTurn]?.isBot) {
                 if (Math.random() < 0.15) { let tauntMsg = randomTaunts[Math.floor(Math.random() * randomTaunts.length)]; showTemporaryTaunt(tauntMsg); }
             }
             renderPlayers(); renderBoard();
