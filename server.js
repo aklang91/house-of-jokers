@@ -91,7 +91,7 @@ function shuffle(array) {
     return array;
 }
 
-// Sömn-funktion för linjär asynkronisering
+// HJÄLPFUNKTION: Sömn-funktion för linjär asynkronisering
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function startRoundLogic(room) {
@@ -502,7 +502,7 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - Stabiliserad
+    // 6. BOT INTELLIGENS (AI) - Asynkront Flöde med Intermediär-Check
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
         await sleep(1000); 
@@ -560,9 +560,7 @@ io.on('connection', (socket) => {
                 r2.markModified('players'); 
                 await r2.save(); 
                 
-                // BUGGFIX 1: Uppdatera båda för att undvika "Spök-kort" i handen
                 io.to(roomName).emit('boardUpdated', r2);
-                io.to(roomName).emit('updatePlayers', r2);
                 
                 await sleep(1500);
                 
@@ -720,12 +718,36 @@ io.on('connection', (socket) => {
                 }
 
                 if (!chosenAction && jokersActive) {
-                    let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
-                        return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
-                    }); 
-                    if (jokerMove) {
-                        chosenAction = jokerMove;
-                        tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                    // NYTT MELLANSTEG: Kan någon spelare mellan mig och personen i kris rädda dem med ett öppet kort?
+                    let targetIndexInTeammates = activeTeammates.findIndex(t => t.id === targetPlayerInCrisis.id);
+                    let intermediateTeammates = activeTeammates.slice(0, targetIndexInTeammates);
+                    
+                    let canIntermediateSave = false;
+                    for (let intermediate of intermediateTeammates) {
+                        let openEngines = [];
+                        intermediate.buffer.forEach((c, bIndex) => {
+                            let side = checkPlayability(c, room.boardState);
+                            if (side && !c.isFacedown) openEngines.push({card: c, side: side});
+                        });
+
+                        for (let eng of openEngines) {
+                            let simulatedBoard = simulatePlay(room.boardState, eng);
+                            if (getOpenPlayableCount(targetPlayerInCrisis, simulatedBoard) > 0) {
+                                canIntermediateSave = true;
+                                break;
+                            }
+                        }
+                        if (canIntermediateSave) break;
+                    }
+
+                    if (!canIntermediateSave) {
+                        let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
+                            return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
+                        }); 
+                        if (jokerMove) {
+                            chosenAction = jokerMove;
+                            tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                        }
                     }
                 }
 
@@ -811,6 +833,7 @@ io.on('connection', (socket) => {
                 r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
                 r2.markModified('players');
                 await r2.save();
+                
                 io.to(r2.roomName).emit('updatePlayers', r2);
                 
                 await sleep(2500);
@@ -891,7 +914,6 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
-            io.to(room.roomName).emit('updatePlayers', room);
             
             await sleep(3000);
             await playBotTurn(room.roomName, botIndex);
@@ -899,7 +921,6 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
-            io.to(room.roomName).emit('updatePlayers', room); // BUGGFIX 1 (Igen)
             
             await sleep(3000);
             let r2 = await Room.findOne({ roomName: room.roomName });
