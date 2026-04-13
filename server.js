@@ -91,7 +91,6 @@ function shuffle(array) {
     return array;
 }
 
-// HJÄLPFUNKTION: Sömn-funktion för linjär asynkronisering
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function startRoundLogic(room) {
@@ -502,7 +501,7 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI) - Asynkront Flöde med Intermediär-Check
+    // 6. BOT INTELLIGENS (AI)
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
         try {
@@ -554,7 +553,6 @@ io.on('connection', (socket) => {
                 r2.markModified('players'); 
                 await r2.save(); 
                 
-                // NYTT: Båda signalerna skickas exakt samtidigt för att döda "spök-korten"
                 io.to(roomName).emit('boardUpdated', r2);
                 io.to(roomName).emit('updatePlayers', r2);
                 
@@ -639,10 +637,10 @@ io.on('connection', (socket) => {
                         let nextBoard = simulateJoker(boardState, jFrom, jTo);
                         
                         let sabotage = false;
-                        for (let t of activeTeammates) {
-                            let before = getOpenPlayableCount(t, boardState);
-                            let after = getOpenPlayableCount(t, nextBoard);
-                            if (before > 0 && after === 0) { sabotage = true; break; }
+                        if (nextPlayer) {
+                            let before = getOpenPlayableCount(nextPlayer, boardState);
+                            let after = getOpenPlayableCount(nextPlayer, nextBoard);
+                            if (before > 0 && after === 0) sabotage = true;
                         }
                         if (sabotage) continue; 
 
@@ -665,7 +663,7 @@ io.on('connection', (socket) => {
             if (!chosenAction && myPlayableEngines.length > 0) {
                 
                 if (allTeammatesCanPlay || activeTeammates.length === 0) {
-                    // SCENARIO A: Fredstid (Inga jokerdrag!)
+                    // SCENARIO A: Fredstid
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
                         let unlocksOwn = false;
@@ -711,12 +709,35 @@ io.on('connection', (socket) => {
                     }
 
                     if (!chosenAction && jokersActive) {
-                        let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
-                            return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
-                        }); 
-                        if (jokerMove) {
-                            chosenAction = jokerMove;
-                            tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                        let targetIndexInTeammates = activeTeammates.findIndex(t => t.id === targetPlayerInCrisis.id);
+                        let intermediateTeammates = activeTeammates.slice(0, targetIndexInTeammates);
+                        
+                        let canIntermediateSave = false;
+                        for (let intermediate of intermediateTeammates) {
+                            let openEngines = [];
+                            intermediate.buffer.forEach((c, bIndex) => {
+                                let side = checkPlayability(c, room.boardState);
+                                if (side && !c.isFacedown) openEngines.push({card: c, side: side});
+                            });
+
+                            for (let eng of openEngines) {
+                                let simulatedBoard = simulatePlay(room.boardState, eng);
+                                if (getOpenPlayableCount(targetPlayerInCrisis, simulatedBoard) > 0) {
+                                    canIntermediateSave = true;
+                                    break;
+                                }
+                            }
+                            if (canIntermediateSave) break;
+                        }
+
+                        if (!canIntermediateSave) {
+                            let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
+                                return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
+                            }); 
+                            if (jokerMove) {
+                                chosenAction = jokerMove;
+                                tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                            }
                         }
                     }
 
@@ -778,7 +799,7 @@ io.on('connection', (socket) => {
         let engine = action.engine;
         
         if (engine.isFacedown) {
-            let guessCorrect = Math.random() < 0.75; 
+            let guessCorrect = Math.random() < 0.80; // UPPDATERAD SANOLIKHET
             
             io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down card...`);
 
@@ -842,7 +863,7 @@ io.on('connection', (socket) => {
         await room.save();
         
         io.to(room.roomName).emit('boardUpdated', room); 
-        io.to(room.roomName).emit('updatePlayers', room); // NYTT: Säkerställer synk
+        io.to(room.roomName).emit('updatePlayers', room);
         
         await sleep(3000);
         let r2 = await Room.findOne({ roomName: room.roomName });
@@ -886,7 +907,6 @@ io.on('connection', (socket) => {
             bot.replaceFacedown = playedCardWasFacedown;
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
-            // NYTT: Båda signalerna skickas exakt samtidigt för att döda "spök-korten"
             io.to(room.roomName).emit('boardUpdated', room); 
             io.to(room.roomName).emit('updatePlayers', room); 
             
@@ -895,7 +915,6 @@ io.on('connection', (socket) => {
         } else {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
-            // NYTT: Båda signalerna skickas exakt samtidigt för att döda "spök-korten"
             io.to(room.roomName).emit('boardUpdated', room); 
             io.to(room.roomName).emit('updatePlayers', room);
             
@@ -933,7 +952,7 @@ io.on('connection', (socket) => {
         room.markModified('players');
         await room.save();
         
-        io.to(room.roomName).emit('boardUpdated', room); // NYTT: Säkerställer synk
+        io.to(room.roomName).emit('boardUpdated', room); 
         io.to(room.roomName).emit('updatePlayers', room); 
         
         await sleep(3000);
