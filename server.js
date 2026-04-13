@@ -53,6 +53,7 @@ const roomSchema = new mongoose.Schema({
     hostId: String, 
     maxPlayers: Number,
     bufferSize: Number,
+    totalJokers: { type: Number, default: 3 }, // Ny variabel i databasen
     totalTurns: { type: Number, default: 0 },
     cardsPlayedCount: { type: Number, default: 0 },
     currentTurn: { type: Number, default: -1 },
@@ -186,7 +187,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('createGame', async (data, callback) => {
-        const { playerId, playerName, roomName, maxPlayers, difficulty, playWith } = data;
+        // Ny mottagare för jokerCount
+        const { playerId, playerName, roomName, maxPlayers, difficulty, jokerCount, playWith } = data;
         let existingRoom = await Room.findOne({ roomName: roomName });
         
         if (existingRoom) {
@@ -199,6 +201,7 @@ io.on('connection', (socket) => {
 
         let bufferSize = parseInt(difficulty) || 3;
         let mPlayers = parseInt(maxPlayers);
+        let tJokers = parseInt(jokerCount) || 3; // Ny rad
         let isAiGame = (playWith === 'computer');
 
         let playersArr = [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false, isBot: false }];
@@ -220,6 +223,7 @@ io.on('connection', (socket) => {
             hostId: playerId, 
             maxPlayers: mPlayers,
             bufferSize: bufferSize,
+            totalJokers: tJokers, // Sparar valet till databasen
             players: playersArr,
             boardState: {
                 '♠': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
@@ -409,7 +413,9 @@ io.on('connection', (socket) => {
 
         if (isValidMove) {
             room.cardsPlayedCount++;
-            if (room.cardsPlayedCount <= 3) {
+            
+            // NYTT: Spawnar jokrar utifrån din inställning, inte bara "3"
+            if (room.cardsPlayedCount <= room.totalJokers) {
                 if (toSide === 'max') suitState.jokerMax = true;
                 if (toSide === 'min') suitState.jokerMin = true;
             }
@@ -501,7 +507,7 @@ io.on('connection', (socket) => {
     }
 
     // ==========================================
-    // 6. BOT INTELLIGENS (AI)
+    // 6. BOT INTELLIGENS (AI) 
     // ==========================================
     async function playBotTurn(roomName, botIndex) {
         try {
@@ -602,7 +608,8 @@ io.on('connection', (socket) => {
             });
             myPlayableEngines.sort((a, b) => (a.isFacedown ? 1 : 0) - (b.isFacedown ? 1 : 0));
 
-            let jokersActive = room.cardsPlayedCount >= 3;
+            // NYTT: AI kollar rummets inställning för jokrar!
+            let jokersActive = room.cardsPlayedCount >= room.totalJokers;
             
             let activeTeammates = [];
             for (let i = 1; i < room.players.length; i++) {
@@ -799,7 +806,7 @@ io.on('connection', (socket) => {
         let engine = action.engine;
         
         if (engine.isFacedown) {
-            let guessCorrect = Math.random() < 0.80; // UPPDATERAD SANOLIKHET
+            let guessCorrect = Math.random() < 0.80; 
             
             io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down card...`);
 
@@ -877,10 +884,11 @@ io.on('connection', (socket) => {
         let suitState = room.boardState[engine.card.suit];
         if (engine.side === 'max') {
             suitState.max = engine.card.value;
-            if (room.cardsPlayedCount <= 3) suitState.jokerMax = true;
+            // NYTT: AI kollar rummets inställning för att spawna jokrar
+            if (room.cardsPlayedCount <= room.totalJokers) suitState.jokerMax = true;
         } else {
             suitState.min = engine.card.value;
-            if (room.cardsPlayedCount <= 3) suitState.jokerMin = true;
+            if (room.cardsPlayedCount <= room.totalJokers) suitState.jokerMin = true;
         }
 
         room.lastAction = { type: 'play', playerName: bot.name, card: engine.card, side: engine.side };

@@ -109,7 +109,7 @@
 
         .lobby-box {
             margin-top: 20px; background: #155724; padding: 30px; border-radius: 10px;
-            max-width: 450px; margin: 20px auto; border: 3px solid #d4af37; color: #ecf0f1; 
+            max-width: 500px; margin: 20px auto; border: 3px solid #d4af37; color: #ecf0f1; 
         }
         .lobby-box h3 { color: #f1c40f; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
@@ -134,13 +134,15 @@
 
         .lobby-input:focus { border-color: #d4af37; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3), 0 0 8px rgba(212, 175, 55, 0.6); }
 
-        .radio-group { display: flex; width: 100%; gap: 10px; }
+        .radio-group { display: flex; width: 100%; gap: 8px; }
         .radio-group label { flex: 1; cursor: pointer; }
         .radio-group input[type="radio"] { display: none; }
         .radio-group span {
-            display: block; padding: 10px; border: 2px solid #3e2723; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center; height: 100%;
+            padding: 8px 5px; border: 2px solid #3e2723; border-radius: 4px;
             background: #ffffff; color: #3e2723; font-family: 'Fondamento', cursive, serif;
             font-weight: bold; text-align: center; box-shadow: 2px 2px 4px rgba(0,0,0,0.4); transition: all 0.2s;
+            font-size: 15px; box-sizing: border-box; line-height: 1.1;
         }
         .radio-group input[type="radio"]:checked + span {
             background: linear-gradient(to bottom, #f1c40f, #f39c12); color: #3e2723;
@@ -458,12 +460,22 @@
             </div>
 
             <div class="form-group">
-                <label class="group-title">Difficulty</label>
+                <label class="group-title">Difficulty (Playable Cards)</label>
                 <div class="radio-group" id="inputDifficultyGroup">
-                    <label><input type="radio" name="difficulty" value="3" checked> <span>Normal (3 Cards)</span></label>
-                    <label><input type="radio" name="difficulty" value="2"> <span>Hard (2 Cards)</span></label>
+                    <label><input type="radio" name="difficulty" value="4"> <span>Easy (4)</span></label>
+                    <label><input type="radio" name="difficulty" value="3" checked> <span>Normal (3)</span></label>
+                    <label><input type="radio" name="difficulty" value="2"> <span>Hard (2)</span></label>
                 </div>
             </div>
+
+            <div class="form-group">
+                <label class="group-title">Jokers in play</label>
+                <div class="radio-group" id="inputJokerGroup">
+                    <label><input type="radio" name="jokerCount" value="2"> <span>2 Jokers</span></label>
+                    <label><input type="radio" name="jokerCount" value="3" checked> <span>3 Jokers</span></label>
+                </div>
+            </div>
+
             <div class="lobby-buttons">
                 <button class="lobby-btn btn-green" onclick="createGame()">Create Game</button>
                 <button class="lobby-btn btn-red" onclick="showStep1()">Back</button>
@@ -569,13 +581,13 @@
 
     <dialog id="instructionsDialog">
         <h2 style="border:none; text-align:center;">Game Instructions: House of Jokers</h2>
-        <p><strong>Players:</strong> 3–5<br><strong>Equipment:</strong> A standard deck (52 cards) and 3 jokers.</p>
+        <p><strong>Players:</strong> 3–5<br><strong>Equipment:</strong> A standard deck (52 cards) and 2 or 3 jokers.</p>
 
         <h3>1. Setup</h3>
         <ul>
             <li><strong>The Start:</strong> Take out all four sevens and place them in a row in the middle of the board.</li>
             <li><strong>Deal:</strong> Set the jokers aside. Deal all remaining cards evenly to the players. This is your hidden hand.</li>
-            <li><strong>The Choice:</strong> Each player selects cards from their hand (3 in Normal mode, 2 in Hard mode) and places them face-up. These slots are your playable cards.</li>
+            <li><strong>The Choice:</strong> Each player selects cards from their hand (4 in Easy, 3 in Normal, 2 in Hard) and places them face-up. These slots are your playable cards.</li>
             <li><strong>The Reveal:</strong> When all players have chosen, everyone reveals their cards simultaneously.</li>
             <li><strong>Start:</strong> The player with the most cards in hand starts.</li>
         </ul>
@@ -618,7 +630,7 @@
         <h3>6. Laws of the Jokers</h3>
         <ul>
             <li><strong>Block:</strong> No card can be played where a joker lies.</li>
-            <li><strong>Start:</strong> The first three cards played after the sevens get a joker placed on them immediately.</li>
+            <li><strong>Start:</strong> De första 2 eller 3 korten som spelas på brädet (beroende på din inställning) får en joker placerad på sig direkt.</li>
             <li><strong>Placement:</strong> Max one joker per endpoint.</li>
             <li><strong>Forbidden zones:</strong> A joker may never be placed on a seven (until removed permanently) or on a closed side.</li>
             <li><strong>Elimination:</strong> A joker can be placed ON a seven to permanently eliminate it. The joker is then crossed out and can never be moved again!</li>
@@ -696,6 +708,7 @@
         let previousCardsPlayedCount = 0;
         let previousPlayerCount = 0;
         let roomBufferSize = 3;
+        let roomTotalJokers = 3; // Ny variabel för jokrar
         let totalTurns = 0;
         
         let interactionState = 'normal'; 
@@ -781,11 +794,12 @@
             const roomName = document.getElementById('inputCreateRoomName').value;
             const maxPlayers = document.querySelector('input[name="playerCount"]:checked').value;
             const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+            const jokerCount = document.querySelector('input[name="jokerCount"]:checked').value; // Ny läsning
             const playWith = document.querySelector('input[name="playWith"]:checked').value;
 
             if(!roomName) return document.getElementById('lobbyErrorCreate').innerText = "Enter a room name!";
             
-            socket.emit('createGame', { playerId: myPlayerId, playerName, roomName, maxPlayers, difficulty, playWith }, (res) => {
+            socket.emit('createGame', { playerId: myPlayerId, playerName, roomName, maxPlayers, difficulty, jokerCount, playWith }, (res) => {
                 if(res.success) {
                     myRoomName = roomName;
                     localStorage.setItem('hoj_roomName', roomName);
@@ -935,7 +949,7 @@
                 } else {
                     if(isMyTurn) {
                         let hasFaceDown = player.buffer.some(c => c.isFacedown);
-                        let allJokersPlaced = cardsPlayedCount >= 3;
+                        let allJokersPlaced = cardsPlayedCount >= roomTotalJokers; // NY JOKERLOGIK
                         if (hasFaceDown) setStatus(allJokersPlaced ? `Your move! Play a green card, move a joker, or gamble on a face-down card.` : `Your move! Play a green card or guess a face-down card. No joker moving yet!`);
                         else setStatus(allJokersPlaced ? `Your turn! Play a green card, or move a joker if you're feeling sneaky.` : `Your turn! Play a green card. Jokers are staying put for now.`);
                     } else setStatus(`${player.name} is thinking... or just confused.`);
@@ -943,7 +957,6 @@
             }
         }
 
-        // Tillåter att vi "hittar" rätt siffra även om jokrar är i vägen (så att jokrarna kan tändas)
         function isCardPlayableIgnoringJokers(card) {
             let state = currentBoardState[card.suit];
             if (!state) return false;
@@ -1220,7 +1233,9 @@
             if (isMyTurn && gamePhase === 'playing' && !localPlayers[activeTurn].mustReplace) {
                 localPlayers[activeTurn].buffer.forEach(c => { if (!c.isFacedown && isCardPlayableIgnoringJokers(c)) myTurnHasPlayable = true; });
             }
-            let jokersActive = myTurnHasPlayable && cardsPlayedCount >= 3 && interactionState === 'normal';
+            
+            // NY JOKERLOGIK: Bryr sig om rummets inställning
+            let jokersActive = myTurnHasPlayable && cardsPlayedCount >= roomTotalJokers && interactionState === 'normal';
             
             let shimmerSide = null; 
             let shimmerSuit = null;
@@ -1334,7 +1349,9 @@
 
                 const cardsContainer = document.createElement('div'); cardsContainer.className = 'my-cards-container';
                 const bufferWrapper = document.createElement('div'); bufferWrapper.className = 'buffer-wrapper';
-                let bw = roomBufferSize === 3 ? 164 : 113;
+                
+                // NYTT: Dynamisk bredd för att passa 4 kort utan att krocka
+                let bw = roomBufferSize === 4 ? 230 : (roomBufferSize === 3 ? 164 : 113);
                 bufferWrapper.style.flex = `0 0 ${bw}px`; bufferWrapper.style.minWidth = `${bw}px`;
                 
                 const bufferSection = document.createElement('div'); bufferSection.className = 'player-section buffer-section';
@@ -1456,12 +1473,16 @@
 
         socket.on('gameState', (data) => {
             document.getElementById('lobbyStep1').style.display = 'none'; document.getElementById('createView').style.display = 'none'; document.getElementById('joinView').style.display = 'none'; document.getElementById('waitingView').style.display = 'none'; document.getElementById('gameView').style.display = 'block'; document.getElementById('leaveBtn').style.display = 'block'; document.getElementById('turnCounter').style.display = 'block'; document.getElementById('turnCountNumber').innerText = data.totalTurns || 0;
-            currentBoardState = data.boardState; localPlayers = data.players; activeTurn = data.currentTurn; gamePhase = data.gamePhase; cardsPlayedCount = data.cardsPlayedCount; previousCardsPlayedCount = cardsPlayedCount; roomBufferSize = data.bufferSize || 3; totalTurns = data.totalTurns || 0; interactionState = gamePhase === 'gameover' ? 'gameover' : 'normal'; cardToRevert = null; setupInitialized = false; selectedJokerInfo = null;
+            currentBoardState = data.boardState; localPlayers = data.players; activeTurn = data.currentTurn; gamePhase = data.gamePhase; cardsPlayedCount = data.cardsPlayedCount; previousCardsPlayedCount = cardsPlayedCount; 
+            roomBufferSize = data.bufferSize || 3; 
+            roomTotalJokers = data.totalJokers || 3; // Nytt 
+            totalTurns = data.totalTurns || 0; interactionState = gamePhase === 'gameover' ? 'gameover' : 'normal'; cardToRevert = null; setupInitialized = false; selectedJokerInfo = null;
             renderPlayers(); renderBoard();
         });
 
         socket.on('boardUpdated', (data) => {
             currentBoardState = data.boardState; cardsPlayedCount = data.cardsPlayedCount; roomLastAction = data.lastAction; roomLastActionTime = data.lastActionTime;
+            roomTotalJokers = data.totalJokers || 3; // Nytt
             
             if (roomLastAction && roomLastActionTime > previousActionTime) {
                 if (roomLastAction.type === 'play' && roomLastAction.playerName && !localPlayers[activeTurn]?.isBot) {
@@ -1491,6 +1512,8 @@
             if (interactionState === 'gameover') return;
             let turnChanged = (activeTurn !== data.currentTurn);
             localPlayers = data.players; activeTurn = data.currentTurn; gamePhase = data.gamePhase; cardsPlayedCount = data.cardsPlayedCount; previousCardsPlayedCount = cardsPlayedCount; totalTurns = data.totalTurns || 0;
+            roomTotalJokers = data.totalJokers || 3; // Nytt
+            
             document.getElementById('turnCountNumber').innerText = totalTurns;
             if (turnChanged || interactionState === 'waiting') { interactionState = 'normal'; cardToRevert = null; }
             
