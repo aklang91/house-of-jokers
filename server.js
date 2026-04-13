@@ -53,7 +53,7 @@ const roomSchema = new mongoose.Schema({
     hostId: String, 
     maxPlayers: Number,
     bufferSize: Number,
-    totalJokers: { type: Number, default: 3 }, // Ny variabel i databasen
+    totalJokers: { type: Number, default: 3 }, 
     totalTurns: { type: Number, default: 0 },
     cardsPlayedCount: { type: Number, default: 0 },
     currentTurn: { type: Number, default: -1 },
@@ -135,7 +135,7 @@ async function startRoundLogic(room) {
 
     room.players.forEach(p => {
         if (p.id !== room.hostId && !p.isBot) {
-            sendPush(p, 'House of Jokers', `The game has started in ${room.roomName}! Hurry up and pick your playable cards.`);
+            sendPush(p, 'House of Jokers', `The game has started in ${room.roomName}! Hurry up and pick your action cards.`);
         }
     });
 }
@@ -187,7 +187,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('createGame', async (data, callback) => {
-        // Ny mottagare för jokerCount
         const { playerId, playerName, roomName, maxPlayers, difficulty, jokerCount, playWith } = data;
         let existingRoom = await Room.findOne({ roomName: roomName });
         
@@ -201,7 +200,7 @@ io.on('connection', (socket) => {
 
         let bufferSize = parseInt(difficulty) || 3;
         let mPlayers = parseInt(maxPlayers);
-        let tJokers = parseInt(jokerCount) || 3; // Ny rad
+        let tJokers = parseInt(jokerCount) || 3; 
         let isAiGame = (playWith === 'computer');
 
         let playersArr = [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false, isBot: false }];
@@ -223,7 +222,7 @@ io.on('connection', (socket) => {
             hostId: playerId, 
             maxPlayers: mPlayers,
             bufferSize: bufferSize,
-            totalJokers: tJokers, // Sparar valet till databasen
+            totalJokers: tJokers,
             players: playersArr,
             boardState: {
                 '♠': { min: 7, max: 7, jokerMin: false, jokerMax: false, jokerCenter: false },
@@ -397,7 +396,7 @@ io.on('connection', (socket) => {
         if(!room) return;
 
         if (room.players[pIndex].id !== playerId) return callback({success: false, msg: "Cheating!"});
-        if (room.gamePhase === 'setup') return callback({ success: false, msg: "Wait until everyone has chosen their playable cards!" });
+        if (room.gamePhase === 'setup') return callback({ success: false, msg: "Wait until everyone has chosen their action cards!" });
         if (card.suit !== toSuit) return callback({ success: false, msg: "Card dragged to the wrong suit!" });
 
         let suitState = room.boardState[card.suit];
@@ -414,7 +413,6 @@ io.on('connection', (socket) => {
         if (isValidMove) {
             room.cardsPlayedCount++;
             
-            // NYTT: Spawnar jokrar utifrån din inställning, inte bara "3"
             if (room.cardsPlayedCount <= room.totalJokers) {
                 if (toSide === 'max') suitState.jokerMax = true;
                 if (toSide === 'min') suitState.jokerMin = true;
@@ -601,6 +599,12 @@ io.on('connection', (socket) => {
                 return nextBoard;
             };
 
+            const getCardStr = (c) => {
+                let v = c.value;
+                if (v === 1) v = 'A'; else if (v === 11) v = 'J'; else if (v === 12) v = 'Q'; else if (v === 13) v = 'K';
+                return v + c.suit;
+            };
+
             let myPlayableEngines = [];
             bot.buffer.forEach((c, bIndex) => {
                 let side = checkPlayability(c, room.boardState);
@@ -608,7 +612,6 @@ io.on('connection', (socket) => {
             });
             myPlayableEngines.sort((a, b) => (a.isFacedown ? 1 : 0) - (b.isFacedown ? 1 : 0));
 
-            // NYTT: AI kollar rummets inställning för jokrar!
             let jokersActive = room.cardsPlayedCount >= room.totalJokers;
             
             let activeTeammates = [];
@@ -664,13 +667,12 @@ io.on('connection', (socket) => {
 
             if (bot.buffer.length === 1 && bot.hand.length === 0 && myPlayableEngines.length === 1) {
                 chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                tauntMsg = `${bot.name} plays their final card!`;
+                tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)} as their final card!`;
             }
 
             if (!chosenAction && myPlayableEngines.length > 0) {
                 
                 if (allTeammatesCanPlay || activeTeammates.length === 0) {
-                    // SCENARIO A: Fredstid
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
                         let unlocksOwn = false;
@@ -683,7 +685,7 @@ io.on('connection', (socket) => {
 
                         if (unlocksOwn) { 
                             chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays a card to set up their next move.`;
+                            tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to set up their next move.`;
                             break; 
                         }
                     }
@@ -693,7 +695,7 @@ io.on('connection', (socket) => {
                             let nextBoard = simulatePlay(room.boardState, eng);
                             if (getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState)) {
                                 chosenAction = { type: 'play', engine: eng }; 
-                                tauntMsg = `${bot.name} plays a card to give the next player more options.`;
+                                tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to give the next player more options.`;
                                 break; 
                             }
                         }
@@ -701,16 +703,15 @@ io.on('connection', (socket) => {
 
                     if (!chosenAction) {
                         chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                        tauntMsg = `${bot.name} plays a card.`;
+                        tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)}.`;
                     }
 
                 } else {
-                    // SCENARIO B: Krishantering
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
                         if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
                             chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays a card to rescue a blocked teammate.`;
+                            tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to rescue a blocked teammate.`;
                             break; 
                         }
                     }
@@ -750,7 +751,7 @@ io.on('connection', (socket) => {
 
                     if (!chosenAction) {
                         chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                        tauntMsg = `${bot.name} plays a card.`;
+                        tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)}.`;
                     }
                 }
             }
@@ -782,7 +783,7 @@ io.on('connection', (socket) => {
                 await executeBotAction(room, botIndex, mockAction);
             } else {
                 if (faceupIndices.length > 0) {
-                    io.to(roomName).emit('botTaunt', `${bot.name} is completely blocked and must take a penalty.`);
+                    io.to(roomName).emit('botTaunt', `${bot.name} is completely blocked and must turn down an action card.`);
                     await sleep(3500); 
                     let r2 = await Room.findOne({ roomName });
                     if(r2) await applyBotPenalty(r2, botIndex, false, null);
@@ -808,7 +809,7 @@ io.on('connection', (socket) => {
         if (engine.isFacedown) {
             let guessCorrect = Math.random() < 0.80; 
             
-            io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down card...`);
+            io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down action card...`);
 
             await sleep(2500);
 
@@ -843,9 +844,9 @@ io.on('connection', (socket) => {
 
             } else {
                 if (!guessCorrect) {
-                    io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and takes a penalty.`);
+                    io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and must turn down an action card.`);
                 } else {
-                    io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Taking a penalty.`);
+                    io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Turning down an action card.`);
                 }
                 
                 await applyBotPenalty(r2, botIndex, (guessCorrect && !isPlayable), engine.bIndex);
@@ -884,7 +885,6 @@ io.on('connection', (socket) => {
         let suitState = room.boardState[engine.card.suit];
         if (engine.side === 'max') {
             suitState.max = engine.card.value;
-            // NYTT: AI kollar rummets inställning för att spawna jokrar
             if (room.cardsPlayedCount <= room.totalJokers) suitState.jokerMax = true;
         } else {
             suitState.min = engine.card.value;
@@ -942,7 +942,7 @@ io.on('connection', (socket) => {
         if (faceupIndices.length === 0) {
             room.gamePhase = 'gameover';
             await room.save();
-            io.to(room.roomName).emit('gameEnded', { msg: `${bot.name} failed and has no cards to take a penalty with. You lost!` });
+            io.to(room.roomName).emit('gameEnded', { msg: `${bot.name} failed and has no action cards to turn down. You lost!` });
             room.players.forEach(p => {
                 if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} failed. You lost!`);
             });
