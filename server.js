@@ -473,34 +473,57 @@ io.on('connection', (socket) => {
         await nextTurn(room); callback({ success: true });
     });
 
-    async function nextTurn(room) {
-        room.players.forEach(p => p.buffer.forEach(c => {
-            if (c.revealedThisTurn) { c.isFacedown = true; c.revealedThisTurn = false; }
-        }));
-        
-        room.totalTurns++; 
+    // NYTT: Skottsäker nextTurn med retry-logik och färsk databashämtning!
+    async function nextTurn(roomParam) {
+        let roomName = roomParam.roomName;
+        let maxRetries = 3;
 
-        let startIndex = room.currentTurn;
-        let nextIndex = (startIndex + 1) % room.players.length;
-        
-        while (nextIndex !== startIndex) {
-            let p = room.players[nextIndex];
-            if (p.hand.length > 0 || p.buffer.length > 0) break;
-            nextIndex = (nextIndex + 1) % room.players.length;
-        }
-        
-        room.currentTurn = nextIndex;
-        room.markModified('players'); await room.save();
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                let room = await Room.findOne({ roomName: roomName });
+                if (!room) return; 
 
-        io.to(room.roomName).emit('boardUpdated', room);
-        io.to(room.roomName).emit('updatePlayers', room);
+                room.players.forEach(p => p.buffer.forEach(c => {
+                    if (c.revealedThisTurn) { c.isFacedown = true; c.revealedThisTurn = false; }
+                }));
+                
+                room.totalTurns++; 
 
-        let nextPlayer = room.players[room.currentTurn];
-        
-        if (!nextPlayer.isBot) {
-            sendPush(nextPlayer, 'House of Jokers', `Your turn! The board has changed in ${room.roomName}.`);
-        } else {
-            playBotTurn(room.roomName, room.currentTurn);
+                let startIndex = room.currentTurn;
+                let nextIndex = (startIndex + 1) % room.players.length;
+                
+                while (nextIndex !== startIndex) {
+                    let p = room.players[nextIndex];
+                    if (p.hand.length > 0 || p.buffer.length > 0) break;
+                    nextIndex = (nextIndex + 1) % room.players.length;
+                }
+                
+                room.currentTurn = nextIndex;
+                room.markModified('players'); 
+                
+                await room.save();
+
+                io.to(room.roomName).emit('boardUpdated', room);
+                io.to(room.roomName).emit('updatePlayers', room);
+
+                let nextPlayer = room.players[room.currentTurn];
+                
+                if (!nextPlayer.isBot) {
+                    sendPush(nextPlayer, 'House of Jokers', `Your turn! The board has changed in ${room.roomName}.`);
+                } else {
+                    playBotTurn(room.roomName, room.currentTurn);
+                }
+                
+                return; // Avslutar loopen om sparningen lyckas
+
+            } catch (err) {
+                console.error(`Tyst krasch avvärjd i nextTurn för rum ${roomName} (Försök ${attempt} av ${maxRetries}):`, err.message);
+                if (attempt < maxRetries) {
+                    await sleep(500); 
+                } else {
+                    console.error(`Spelet hängde sig permanent i nextTurn för ${roomName} efter ${maxRetries} försök.`);
+                }
+            }
         }
     }
 
