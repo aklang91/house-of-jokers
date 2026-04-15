@@ -606,6 +606,7 @@
             <li>Play an <strong>action card</strong> that fits the sequence on the board (e.g., a 6 or 8 on a 7).</li>
             <li><strong>Face-down:</strong> If you select a face-down action card, you must first guess which card it is. If you guess correctly, you may play it. If you guess wrong, the card is flipped back face-down, and you must flip another face-up action card face-down as a penalty.</li>
             <li><strong>Locking the Suit:</strong> When an Ace or King is played, that side of the sequence is closed.</li>
+            <li><strong>Extra Turn:</strong> If you play an Ace or King, and you still have at least one face-up action card that can be played, you get an extra turn immediately!</li>
             <li><strong>Refilling:</strong> After playing a card, take a new one from your hand to fill the empty slot. If you played a face-up card, the new one is placed face-up. If you played a face-down card, the new one is placed face-down.</li>
         </ul>
 
@@ -928,7 +929,7 @@
                     let hasFaceDown = player.buffer.some(c => c.isFacedown);
                     let hasFaceUpUnplayable = player.buffer.some(c => !c.isFacedown && !isCardPlayable(c));
                     if(isMyTurn) {
-                        if (!hasFaceDown) setStatus(`Uh oh, stuck are we? Tap a red card to flip it face-down as a penalty.`);
+                        if (!hasFaceDown) setStatus(`Uh oh, stuck are we? Tap a red action card to flip it face-down as a penalty.`);
                         else if (hasFaceDown && hasFaceUpUnplayable) setStatus(`You're stuck! Guess a face-down action card, or take a penalty and flip a red one.`);
                         else setStatus(`Only face-down action cards left! Time to test your memory... tap one to guess.`);
                     } else setStatus(`${player.name} is stuck and has to make a tough choice.`);

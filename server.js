@@ -94,6 +94,14 @@ function shuffle(array) {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+function isCardPlayableServer(c, boardState) {
+    let state = boardState[c.suit];
+    if (!state) return false;
+    if (c.value === state.min - 1 && !state.jokerMin) return true;
+    if (c.value === state.max + 1 && !state.jokerMax) return true;
+    return false;
+}
+
 async function startRoundLogic(room) {
     room.gamePhase = 'setup';
     room.currentTurn = -1; 
@@ -321,11 +329,25 @@ io.on('connection', (socket) => {
             
             player.mustReplace = false;
             delete player.replaceIndex; 
+
+            // KOLLAR OM MÄNNISKAN FÅR ETT EXTRA DRAG EFTER PÅFYLLNING
+            let takesExtraTurn = false;
+            if (player.earnedExtraTurn) {
+                player.earnedExtraTurn = false;
+                takesExtraTurn = player.buffer.some(c => !c.isFacedown && isCardPlayableServer(c, room.boardState));
+            }
             
             room.markModified('players');
             await room.save();
-            await nextTurn(room);
-            callback({ success: true });
+
+            if (takesExtraTurn) {
+                io.to(roomName).emit('boardUpdated', room);
+                io.to(roomName).emit('updatePlayers', room);
+                callback({ success: true });
+            } else {
+                await nextTurn(room);
+                callback({ success: true });
+            }
         } else {
             callback({ success: false, msg: "You cannot select more cards right now!" });
         }
@@ -337,6 +359,7 @@ io.on('connection', (socket) => {
         let pIndex = room.players.findIndex(p => p.id === data.playerId);
         if(pIndex !== -1) {
             room.players[pIndex].buffer[data.bIndex].isFacedown = true;
+            room.players[pIndex].buffer[data.bIndex].knownByAI = true; // AI-MINNE AKTIVERAT
             room.markModified('players');
             await room.save();
             await nextTurn(room); 
@@ -348,10 +371,14 @@ io.on('connection', (socket) => {
         if(!room) return;
         let player = room.players[data.pIndex];
         if (player && player.id === data.playerId) {
-            if (player.buffer[data.penaltyIndex]) player.buffer[data.penaltyIndex].isFacedown = true;
+            if (player.buffer[data.penaltyIndex]) {
+                player.buffer[data.penaltyIndex].isFacedown = true;
+                player.buffer[data.penaltyIndex].knownByAI = true; // AI-MINNE AKTIVERAT
+            }
             if (player.buffer[data.revertIndex]) {
                 player.buffer[data.revertIndex].isFacedown = true;
                 player.buffer[data.revertIndex].revealedThisTurn = false;
+                player.buffer[data.revertIndex].knownByAI = true; // AI-MINNE AKTIVERAT
             }
             room.markModified('players');
             await room.save();
@@ -424,6 +451,10 @@ io.on('connection', (socket) => {
             let cardInBuff = room.players[pIndex].buffer[bIndex];
             let playedCardWasFacedown = cardInBuff.isFacedown || cardInBuff.revealedThisTurn;
             
+            // TRIGGAR EXTRA DRAG OM DET ÄR ESS ELLER KUNG
+            let isAceOrKing = (card.value === 1 || card.value === 13);
+            room.players[pIndex].earnedExtraTurn = isAceOrKing;
+
             room.players[pIndex].replaceIndex = bIndex;
             room.players[pIndex].buffer.splice(bIndex, 1);
 
@@ -444,8 +475,22 @@ io.on('connection', (socket) => {
                 io.to(roomName).emit('boardUpdated', room); io.to(roomName).emit('updatePlayers', room);
                 callback({ success: true });
             } else {
+                let takesExtraTurn = false;
+                if (room.players[pIndex].earnedExtraTurn) {
+                    room.players[pIndex].earnedExtraTurn = false;
+                    takesExtraTurn = room.players[pIndex].buffer.some(c => !c.isFacedown && isCardPlayableServer(c, room.boardState));
+                }
+
                 room.markModified('players'); room.markModified('boardState'); await room.save();
-                await nextTurn(room); callback({ success: true });
+                
+                if (takesExtraTurn) {
+                    io.to(roomName).emit('boardUpdated', room); 
+                    io.to(roomName).emit('updatePlayers', room);
+                    callback({ success: true });
+                } else {
+                    await nextTurn(room); 
+                    callback({ success: true });
+                }
             }
         } else { callback({ success: false, msg: "Invalid move! The card doesn't fit there." }); }
     });
@@ -473,7 +518,6 @@ io.on('connection', (socket) => {
         await nextTurn(room); callback({ success: true });
     });
 
-    // NYTT: Skottsäker nextTurn med retry-logik och färsk databashämtning!
     async function nextTurn(roomParam) {
         let roomName = roomParam.roomName;
         let maxRetries = 3;
@@ -514,7 +558,7 @@ io.on('connection', (socket) => {
                     playBotTurn(room.roomName, room.currentTurn);
                 }
                 
-                return; // Avslutar loopen om sparningen lyckas
+                return; 
 
             } catch (err) {
                 console.error(`Tyst krasch avvärjd i nextTurn för rum ${roomName} (Försök ${attempt} av ${maxRetries}):`, err.message);
@@ -541,7 +585,7 @@ io.on('connection', (socket) => {
 
             // 1. SMART PÅFYLLNING FRÅN HANDEN
             if (bot.mustReplace) {
-                io.to(roomName).emit('botTaunt', `${bot.name} is selecting a card from their hand.`);
+                io.to(roomName).emit('botTaunt', `${bot.name} is selecting an action card from their hand.`);
                 
                 await sleep(2500); 
                 
@@ -577,6 +621,13 @@ io.on('connection', (socket) => {
                 b2.buffer.splice(insertAt, 0, card);
                 b2.mustReplace = false; delete b2.replaceIndex; 
                 
+                // KOLLAR OM BOTEN FÅR ETT EXTRA DRAG EFTER PÅFYLLNING
+                let takesExtraTurn = false;
+                if (b2.earnedExtraTurn) {
+                    b2.earnedExtraTurn = false;
+                    takesExtraTurn = b2.buffer.some(c => !c.isFacedown && isCardPlayableServer(c, r2.boardState));
+                }
+
                 r2.markModified('players'); 
                 await r2.save(); 
                 
@@ -586,7 +637,15 @@ io.on('connection', (socket) => {
                 await sleep(1500);
                 
                 let r3 = await Room.findOne({ roomName });
-                if(r3) await nextTurn(r3); 
+                if(r3) {
+                    if (takesExtraTurn) {
+                        io.to(roomName).emit('botTaunt', `${b2.name} gets an extra turn!`);
+                        await sleep(2000);
+                        await playBotTurn(roomName, botIndex);
+                    } else {
+                        await nextTurn(r3); 
+                    }
+                }
                 
                 return;
             }
@@ -601,7 +660,10 @@ io.on('connection', (socket) => {
 
             const getOpenPlayableCount = (player, board) => {
                 let count = 0;
-                player.buffer.forEach(c => { if (!c.isFacedown && checkPlayability(c, board)) count++; });
+                player.buffer.forEach(c => { 
+                    // AI-MINNE AKTIVERAT HÄR: Boten kan nu rädda dig om du vänt ner ett kort den känner till!
+                    if ((!c.isFacedown || c.knownByAI) && checkPlayability(c, board)) count++; 
+                });
                 return count;
             };
 
@@ -690,7 +752,7 @@ io.on('connection', (socket) => {
 
             if (bot.buffer.length === 1 && bot.hand.length === 0 && myPlayableEngines.length === 1) {
                 chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)} as their final card!`;
+                tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)} as their final action card!`;
             }
 
             if (!chosenAction && myPlayableEngines.length > 0) {
@@ -748,7 +810,8 @@ io.on('connection', (socket) => {
                             let openEngines = [];
                             intermediate.buffer.forEach((c, bIndex) => {
                                 let side = checkPlayability(c, room.boardState);
-                                if (side && !c.isFacedown) openEngines.push({card: c, side: side});
+                                // AI-MINNE AKTIVERAT: Mellanhanden kan hjälpa till om deras kort är känt
+                                if (side && (!c.isFacedown || c.knownByAI)) openEngines.push({card: c, side: side});
                             });
 
                             for (let eng of openEngines) {
@@ -918,6 +981,10 @@ io.on('connection', (socket) => {
         room.lastActionTime = Date.now();
 
         let playedCardWasFacedown = bot.buffer[engine.bIndex].revealedThisTurn || false;
+        
+        // SÄTTER FLAGGA OM DET ÄR ETT ESS ELLER KUNG
+        bot.earnedExtraTurn = (engine.card.value === 1 || engine.card.value === 13);
+        
         bot.replaceIndex = engine.bIndex;
         bot.buffer.splice(engine.bIndex, 1);
 
@@ -944,14 +1011,29 @@ io.on('connection', (socket) => {
             await sleep(3000);
             await playBotTurn(room.roomName, botIndex);
         } else {
+            let takesExtraTurn = false;
+            if (bot.earnedExtraTurn) {
+                bot.earnedExtraTurn = false;
+                takesExtraTurn = bot.buffer.some(c => !c.isFacedown && isCardPlayableServer(c, room.boardState));
+            }
+
             room.markModified('players'); room.markModified('boardState'); await room.save();
             
             io.to(room.roomName).emit('boardUpdated', room); 
             io.to(room.roomName).emit('updatePlayers', room);
             
             await sleep(3000);
+            
             let r2 = await Room.findOne({ roomName: room.roomName });
-            if(r2) await nextTurn(r2);
+            if(r2) {
+                if (takesExtraTurn) {
+                    io.to(room.roomName).emit('botTaunt', `${bot.name} gets an extra turn!`);
+                    await sleep(2000);
+                    await playBotTurn(room.roomName, botIndex);
+                } else {
+                    await nextTurn(r2);
+                }
+            }
         }
     }
 
@@ -974,10 +1056,12 @@ io.on('connection', (socket) => {
 
         let penaltyIndex = faceupIndices[Math.floor(Math.random() * faceupIndices.length)];
         bot.buffer[penaltyIndex].isFacedown = true;
+        bot.buffer[penaltyIndex].knownByAI = true; // AI-MINNE AKTIVERAT
         
         if (needsRevert && revertIndex !== null) {
             bot.buffer[revertIndex].isFacedown = true;
             bot.buffer[revertIndex].revealedThisTurn = false;
+            bot.buffer[revertIndex].knownByAI = true; // AI-MINNE AKTIVERAT
         }
 
         room.markModified('players');
