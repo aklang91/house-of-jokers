@@ -646,7 +646,7 @@
         // =====================================
         // WEB PUSH LOGIK (ASYNKRONT SPEL)
         // =====================================
-        const PUBLIC_VAPID_KEY = 'BAkfBsBJnEK-5BFAxC_RZk7x-WPrSRk_gaSuatT7QCUl43ExpxgknYZFxFXdNV07ER7mBUMFoY4x7IxOT0pe3M4';
+        const PUBLIC_VAPID_KEY = 'BYT_UT_MOT_DIN_PUBLIKA_NYCKEL_HÄR';
 
         function urlB64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -705,6 +705,7 @@
         let roomLastAction = null;
         let roomLastActionTime = null;
         let previousActionTime = 0;
+        let localActionTriggerTime = 0; // NY LOKAL KLOCKA FÖR ANIMATIONER
 
         let setupSelection = { hand: [], buffer: [] };
         let setupInitialized = false;
@@ -1227,7 +1228,7 @@
             let shimmerSuit = null;
             let shimmerType = null;
             
-            if (roomLastAction && roomLastActionTime && (Date.now() - roomLastActionTime < 1200)) {
+            if (roomLastAction && localActionTriggerTime && (Date.now() - localActionTriggerTime < 1200)) {
                 shimmerType = roomLastAction.type;
                 if (roomLastAction.type === 'play') {
                     shimmerSide = roomLastAction.side; shimmerSuit = roomLastAction.card.suit;
@@ -1470,6 +1471,8 @@
             roomTotalJokers = data.totalJokers || 3; 
             
             if (roomLastAction && roomLastActionTime > previousActionTime) {
+                localActionTriggerTime = Date.now(); 
+                
                 if (roomLastAction.type === 'play' && roomLastAction.playerName && !localPlayers[activeTurn]?.isBot) {
                     showTemporaryTaunt(`${roomLastAction.playerName} played ${getCardName(roomLastAction.card.value)}${roomLastAction.card.suit}`);
                 } else if (roomLastAction.type === 'joker' && roomLastAction.playerName && !localPlayers[activeTurn]?.isBot) {
