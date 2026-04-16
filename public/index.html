@@ -1337,7 +1337,7 @@
                 }
                 
                 const bufferSection = document.createElement('div'); bufferSection.className = 'player-section buffer-section';
-                let bufferTitle = isMe ? `<h4 class="playable-title-mobile">Action cards</h4>` : `<h4 style="margin: 0 0 5px 0;">Action cards</h4>`;
+                let bufferTitle = isMe ? `<h4 class="playable-title-mobile">Action cards</h4>` : ``;
                 bufferSection.innerHTML = bufferTitle;
                 
                 let bufferCardsDiv = document.createElement('div'); bufferCardsDiv.className = 'buffer-cards-div';
@@ -1415,7 +1415,7 @@
                     if (p.hand.length === 0) handCardsDiv.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
                     handSection.appendChild(handCardsDiv);
                 } else {
-                    handSection.innerHTML = `<h4 style="margin: 0 0 5px 0;">Hand</h4>`;
+                    handSection.innerHTML = ``;
                     let handCardsDiv = document.createElement('div'); handCardsDiv.className = 'opponent-hand-cards';
                     
                     if (p.hand.length > 0) {
