@@ -605,7 +605,6 @@ io.on('connection', (socket) => {
                         if (state.jokerMin) jokerPenalty = 5;
                     }
 
-                    // HÄR ÄR DEN NYA MATEMATIKEN FÖR KORTVAL
                     let score = 100 - (distance * 10) - jokerPenalty; 
                     
                     let nextValOut = (c.value >= 7) ? c.value + 1 : c.value - 1;
@@ -700,7 +699,7 @@ io.on('connection', (socket) => {
                 let side = checkPlayability(c, room.boardState);
                 if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
             });
-            myPlayableEngines.sort((a, b) => (a.isFacedown ? 1 : 0) - (b.isFacedown ? 1 : 0));
+            // HÄR HAR VI TAGIT BORT SORTERINGEN: Boten vågar nu spela nedvända kort om de är bättre taktiskt.
 
             let jokersActive = room.cardsPlayedCount >= room.totalJokers;
             
@@ -761,42 +760,9 @@ io.on('connection', (socket) => {
             }
 
             if (!chosenAction && myPlayableEngines.length > 0) {
-                
-                if (allTeammatesCanPlay || activeTeammates.length === 0) {
-                    for (let eng of myPlayableEngines) {
-                        let nextBoard = simulatePlay(room.boardState, eng);
-                        let unlocksOwn = false;
-                        bot.buffer.forEach((c, idx) => {
-                            if (idx !== eng.bIndex && !checkPlayability(c, room.boardState) && checkPlayability(c, nextBoard)) unlocksOwn = true;
-                        });
-                        bot.hand.forEach(hc => {
-                            if (checkPlayability(hc, nextBoard)) unlocksOwn = true;
-                        });
-
-                        if (unlocksOwn) { 
-                            chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to set up their next move.`;
-                            break; 
-                        }
-                    }
-                    
-                    if (!chosenAction && nextPlayer) {
-                        for (let eng of myPlayableEngines) {
-                            let nextBoard = simulatePlay(room.boardState, eng);
-                            if (getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState)) {
-                                chosenAction = { type: 'play', engine: eng }; 
-                                tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to give the next player more options.`;
-                                break; 
-                            }
-                        }
-                    }
-
-                    if (!chosenAction) {
-                        chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                        tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)}.`;
-                    }
-
-                } else {
+                // SCENARIO B: KRISHANTERING
+                if (targetPlayerInCrisis) {
+                    // Prio B1: Rädda med kort
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
                         if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
@@ -806,7 +772,8 @@ io.on('connection', (socket) => {
                         }
                     }
 
-                    if (!chosenAction && jokersActive) {
+                    // Prio B2: Mellanhanden (NY LOGIK: Om krisen löser sig själv, strunta i kris-läge)
+                    if (!chosenAction) {
                         let targetIndexInTeammates = activeTeammates.findIndex(t => t.id === targetPlayerInCrisis.id);
                         let intermediateTeammates = activeTeammates.slice(0, targetIndexInTeammates);
                         
@@ -828,17 +795,56 @@ io.on('connection', (socket) => {
                             if (canIntermediateSave) break;
                         }
 
-                        if (!canIntermediateSave) {
-                            let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
-                                return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
-                            }); 
-                            if (jokerMove) {
-                                chosenAction = jokerMove;
-                                tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                        if (canIntermediateSave) {
+                            targetPlayerInCrisis = null; // Markera krisen som avvärjd av någon annan!
+                        }
+                    }
+
+                    // Prio B3: Joker-räddning
+                    if (!chosenAction && targetPlayerInCrisis && jokersActive) {
+                        let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
+                            return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
+                        }); 
+                        if (jokerMove) {
+                            chosenAction = jokerMove;
+                            tauntMsg = `${bot.name} moves a joker to rescue a blocked teammate.`;
+                        }
+                    }
+                }
+
+                // SCENARIO A: FREDSTID (Körs om ingen är i kris, eller om mellanhanden löser det)
+                if (!chosenAction && !targetPlayerInCrisis) {
+                    // Prio A1: Själv-kombos
+                    for (let eng of myPlayableEngines) {
+                        let nextBoard = simulatePlay(room.boardState, eng);
+                        let unlocksOwn = false;
+                        bot.buffer.forEach((c, idx) => {
+                            if (idx !== eng.bIndex && !checkPlayability(c, room.boardState) && checkPlayability(c, nextBoard)) unlocksOwn = true;
+                        });
+                        bot.hand.forEach(hc => {
+                            if (checkPlayability(hc, nextBoard)) unlocksOwn = true;
+                        });
+
+                        if (unlocksOwn) { 
+                            chosenAction = { type: 'play', engine: eng }; 
+                            tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to set up their next move.`;
+                            break; 
+                        }
+                    }
+                    
+                    // Prio A2: Assisten
+                    if (!chosenAction && nextPlayer) {
+                        for (let eng of myPlayableEngines) {
+                            let nextBoard = simulatePlay(room.boardState, eng);
+                            if (getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState)) {
+                                chosenAction = { type: 'play', engine: eng }; 
+                                tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to give the next player more options.`;
+                                break; 
                             }
                         }
                     }
 
+                    // Prio A3: Standard
                     if (!chosenAction) {
                         chosenAction = { type: 'play', engine: myPlayableEngines[0] };
                         tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)}.`;
@@ -847,10 +853,9 @@ io.on('connection', (socket) => {
             }
 
             if (chosenAction) {
-                if (!chosenAction.engine.isFacedown) {
+                if (chosenAction.type === 'joker' || !chosenAction.engine.isFacedown) {
                     io.to(roomName).emit('botTaunt', tauntMsg);
                     await sleep(3000);
-                    
                     let r2 = await Room.findOne({ roomName });
                     if(r2) await executeBotAction(r2, botIndex, chosenAction);
                 } else {
@@ -859,7 +864,7 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // PANIK
+            // PANIK-LÄGE
             let facedownIndices = [];
             let faceupIndices = [];
             bot.buffer.forEach((c, i) => {
@@ -896,49 +901,31 @@ io.on('connection', (socket) => {
         let bot = room.players[botIndex];
         let engine = action.engine;
         
-        if (engine.isFacedown) {
+        if (action.type === 'play' && engine.isFacedown) {
             let guessCorrect = Math.random() < 0.90; 
             
             io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down action card...`);
-
             await sleep(2500);
-
             io.to(room.roomName).emit('showTempReveal', { roomName: room.roomName, pIndex: botIndex, bIndex: engine.bIndex, card: engine.card, nextState: 'normal' });
-
             await sleep(3500);
             
             let r2 = await Room.findOne({ roomName: room.roomName });
             if (!r2) return;
             
-            let checkPlayability = (c, board) => {
-                let state = board[c.suit];
-                if (c.value === state.min - 1 && !state.jokerMin) return 'min';
-                if (c.value === state.max + 1 && !state.jokerMax) return 'max';
-                return null;
-            };
-            let isPlayable = checkPlayability(engine.card, r2.boardState) !== null;
+            let isPlayable = isCardPlayableServer(engine.card, r2.boardState);
 
             if (guessCorrect && isPlayable) { 
                 io.to(r2.roomName).emit('botTaunt', `${bot.name} correctly remembered the card.`);
-                
                 r2.players[botIndex].buffer[engine.bIndex].isFacedown = false;
                 r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
                 r2.markModified('players');
                 await r2.save();
                 io.to(r2.roomName).emit('updatePlayers', r2);
-                
                 await sleep(2500);
-                
-                if (action.type === 'joker') await finalizeBotJoker(r2, botIndex, action.jFrom, action.jTo);
-                else await finalizeBotPlay(r2, botIndex, engine);
-
+                await finalizeBotPlay(r2, botIndex, engine);
             } else {
-                if (!guessCorrect) {
-                    io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and must turn down an action card.`);
-                } else {
-                    io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Turning down an action card.`);
-                }
-                
+                if (!guessCorrect) io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and must turn down an action card.`);
+                else io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Turning down an action card.`);
                 await applyBotPenalty(r2, botIndex, (guessCorrect && !isPlayable), engine.bIndex);
             }
         } else {
@@ -985,9 +972,7 @@ io.on('connection', (socket) => {
         room.lastActionTime = Date.now();
 
         let playedCardWasFacedown = bot.buffer[engine.bIndex].revealedThisTurn || false;
-        
         bot.earnedExtraTurn = (engine.card.value === 1 || engine.card.value === 13);
-        
         bot.replaceIndex = engine.bIndex;
         bot.buffer.splice(engine.bIndex, 1);
 
@@ -997,9 +982,7 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             io.to(room.roomName).emit('boardUpdated', room);
             io.to(room.roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
-            room.players.forEach(p => {
-                if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`);
-            });
+            room.players.forEach(p => { if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`); });
             return;
         }
 
@@ -1007,10 +990,8 @@ io.on('connection', (socket) => {
             bot.mustReplace = true;
             bot.replaceFacedown = playedCardWasFacedown;
             room.markModified('players'); room.markModified('boardState'); await room.save();
-            
             io.to(room.roomName).emit('boardUpdated', room); 
             io.to(room.roomName).emit('updatePlayers', room); 
-            
             await sleep(3000);
             await playBotTurn(room.roomName, botIndex);
         } else {
@@ -1019,23 +1000,17 @@ io.on('connection', (socket) => {
                 bot.earnedExtraTurn = false;
                 takesExtraTurn = bot.buffer.some(c => !c.isFacedown && isCardPlayableServer(c, room.boardState));
             }
-
             room.markModified('players'); room.markModified('boardState'); await room.save();
-            
             io.to(room.roomName).emit('boardUpdated', room); 
             io.to(room.roomName).emit('updatePlayers', room);
-            
             await sleep(3000);
-            
             let r2 = await Room.findOne({ roomName: room.roomName });
             if(r2) {
                 if (takesExtraTurn) {
                     io.to(room.roomName).emit('botTaunt', `${bot.name} gets an extra turn!`);
                     await sleep(2000);
                     await playBotTurn(room.roomName, botIndex);
-                } else {
-                    await nextTurn(r2);
-                }
+                } else await nextTurn(r2);
             }
         }
     }
@@ -1043,17 +1018,13 @@ io.on('connection', (socket) => {
     async function applyBotPenalty(room, botIndex, needsRevert, revertIndex) {
         let bot = room.players[botIndex];
         let faceupIndices = [];
-        bot.buffer.forEach((c, i) => {
-            if (!c.isFacedown && i !== revertIndex) faceupIndices.push(i);
-        });
+        bot.buffer.forEach((c, i) => { if (!c.isFacedown && i !== revertIndex) faceupIndices.push(i); });
 
         if (faceupIndices.length === 0) {
             room.gamePhase = 'gameover';
             await room.save();
             io.to(room.roomName).emit('gameEnded', { msg: `${bot.name} failed and has no action cards to turn down. You lost!` });
-            room.players.forEach(p => {
-                if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} failed. You lost!`);
-            });
+            room.players.forEach(p => { if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} failed. You lost!`); });
             return;
         }
 
@@ -1069,10 +1040,8 @@ io.on('connection', (socket) => {
 
         room.markModified('players');
         await room.save();
-        
         io.to(room.roomName).emit('boardUpdated', room); 
         io.to(room.roomName).emit('updatePlayers', room); 
-        
         await sleep(3000);
         let r2 = await Room.findOne({ roomName: room.roomName });
         if(r2) await nextTurn(r2);
@@ -1082,37 +1051,24 @@ io.on('connection', (socket) => {
     async function handlePlayerLeave(socketId, specificRoom = null, explicitPlayerId = null) {
         let room = await Room.findOne({ roomName: specificRoom });
         if (!room) return;
-
         let pIdToFind = explicitPlayerId;
         if (!pIdToFind) {
             let socketObj = Array.from(io.sockets.sockets.values()).find(s => s.id === socketId);
             pIdToFind = socketObj ? socketObj.playerId : null;
         }
-        
         if (!pIdToFind) return;
-
         let playerIndex = room.players.findIndex(p => p.id === pIdToFind);
         if (playerIndex !== -1) { 
             let player = room.players[playerIndex];
-            
             if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
                 io.to(room.roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
-                
-                room.players.forEach(p => {
-                    if (p.id !== player.id && !p.isBot) {
-                        sendPush(p, 'House of Jokers', `Game Over! ${player.name} abandoned the game. You lost!`);
-                    }
-                });
-
+                room.players.forEach(p => { if (p.id !== player.id && !p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${player.name} abandoned. You lost!`); });
                 await Room.deleteOne({ roomName: room.roomName }); 
                 return;
             }
-            
             room.players.splice(playerIndex, 1);
-
-            if (room.players.length === 0 || room.gamePhase === 'gameover') {
-                await Room.deleteOne({ roomName: room.roomName });
-            } else {
+            if (room.players.length === 0 || room.gamePhase === 'gameover') await Room.deleteOne({ roomName: room.roomName });
+            else {
                 if (room.hostId === pIdToFind) room.hostId = room.players[0].id;
                 room.markModified('players');
                 await room.save();
@@ -1121,9 +1077,7 @@ io.on('connection', (socket) => {
         }
     }
 
-    socket.on('disconnect', () => {
-        console.log('A device disconnected:', socket.id);
-    });
+    socket.on('disconnect', () => { console.log('A device disconnected:', socket.id); });
 });
 
 // ==========================================
@@ -1133,15 +1087,9 @@ setInterval(async () => {
     const expireTime = Date.now() - (72 * 60 * 60 * 1000); 
     try {
         const result = await Room.deleteMany({ lastUpdated: { $lt: expireTime } });
-        if (result.deletedCount > 0) {
-            console.log(`🧹 Vaktmästaren städade precis bort ${result.deletedCount} inaktiva rum (äldre än 72h).`);
-        }
-    } catch (err) {
-        console.error("Fel vid städning av rum:", err);
-    }
+        if (result.deletedCount > 0) console.log(`🧹 Vaktmästaren städade precis bort ${result.deletedCount} inaktiva rum.`);
+    } catch (err) { console.error("Fel vid städning av rum:", err); }
 }, 60 * 60 * 1000); 
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`House of Jokers asynkron server rullar på port ${PORT}`);
-});
+server.listen(PORT, () => { console.log(`House of Jokers asynkron server rullar på port ${PORT}`); });
