@@ -699,9 +699,9 @@ io.on('connection', (socket) => {
                 let side = checkPlayability(c, room.boardState);
                 if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
             });
-            // HÄR HAR VI TAGIT BORT SORTERINGEN: Boten vågar nu spela nedvända kort om de är bättre taktiskt.
 
-            let jokersActive = room.cardsPlayedCount >= room.totalJokers;
+            // ALLTID AKTIVT: Jokrarna är nu rörliga från start för AI:n också
+            let jokersActive = true;
             
             let activeTeammates = [];
             for (let i = 1; i < room.players.length; i++) {
@@ -772,7 +772,7 @@ io.on('connection', (socket) => {
                         }
                     }
 
-                    // Prio B2: Mellanhanden (NY LOGIK: Om krisen löser sig själv, strunta i kris-läge)
+                    // Prio B2: Mellanhanden 
                     if (!chosenAction) {
                         let targetIndexInTeammates = activeTeammates.findIndex(t => t.id === targetPlayerInCrisis.id);
                         let intermediateTeammates = activeTeammates.slice(0, targetIndexInTeammates);
@@ -796,12 +796,12 @@ io.on('connection', (socket) => {
                         }
 
                         if (canIntermediateSave) {
-                            targetPlayerInCrisis = null; // Markera krisen som avvärjd av någon annan!
+                            targetPlayerInCrisis = null; 
                         }
                     }
 
                     // Prio B3: Joker-räddning
-                    if (!chosenAction && targetPlayerInCrisis && jokersActive) {
+                    if (!chosenAction && targetPlayerInCrisis) {
                         let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
                             return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
                         }); 
@@ -812,7 +812,7 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                // SCENARIO A: FREDSTID (Körs om ingen är i kris, eller om mellanhanden löser det)
+                // SCENARIO A: FREDSTID 
                 if (!chosenAction && !targetPlayerInCrisis) {
                     // Prio A1: Själv-kombos
                     for (let eng of myPlayableEngines) {
@@ -982,7 +982,9 @@ io.on('connection', (socket) => {
             room.markModified('players'); room.markModified('boardState'); await room.save();
             io.to(room.roomName).emit('boardUpdated', room);
             io.to(room.roomName).emit('gameWon', { msg: `Congratulations, you won the game together in ${room.totalTurns} turns!` });
-            room.players.forEach(p => { if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`); });
+            room.players.forEach(p => {
+                if(!p.isBot) sendPush(p, 'House of Jokers', `VICTORY! You won the game together in ${room.totalTurns} turns!`);
+            });
             return;
         }
 

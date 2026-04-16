@@ -170,11 +170,18 @@
 
         .my-cards-container { display: flex; flex-direction: column; width: 100%; }
 
-        .my-hand-cards, .opponent-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .opponent-cards-container { 
+            display: flex; flex-direction: row; justify-content: center; align-items: stretch; gap: 10px; width: 100%; 
+        }
+        .opponent-cards-container .buffer-wrapper { flex: 0 0 auto; }
+        .opponent-cards-container .hand-wrapper { flex: 1; min-width: 80px; display: flex; flex-direction: column; }
+        .opponent-cards-container .hand-section { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; margin-bottom: 0; padding: 5px; }
+
+        .my-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .opponent-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; }
         .buffer-cards-div { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; width: 100%; }
         
         .playable-title-mobile { display: none; } 
-        .opponent-hand-count-mobile { display: none; } 
 
         #board {
             position: relative; padding: 15px; border-radius: 10px;
@@ -330,10 +337,6 @@
             .opponent-area { flex: 0 0 85vw !important; min-width: 85vw !important; max-width: 85vw !important; margin: 0 !important; }
             .player-area h3, .opponent-area h3 { font-size: 18px !important; margin: 5px 0; }
             
-            .opponent-hand-title-text { display: none !important; }
-            .opponent-hand-cards { display: none !important; } 
-            .opponent-hand-count-mobile { display: flex !important; align-items: center; justify-content: center; font-size: 1.1em; color: #f1c40f; flex: 1; }
-
             #myPlayerContainer { 
                 position: fixed !important; bottom: 0 !important; left: 0 !important; 
                 width: 100vw !important; max-width: 100vw !important; z-index: 500 !important; 
@@ -360,13 +363,12 @@
                 justify-content: flex-start !important; 
             }
 
-            .my-hand-title, .opponent-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
+            .my-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
                 display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important;
                 text-align: left !important; color: #f1c40f !important; font-family: 'Pirata One', display, cursive !important;
                 width: 100% !important; line-height: 20px !important; height: 20px !important; white-space: nowrap !important;
             }
             
-            .opponent-hand-title { display: block !important; }
             .buffer-cards-div { display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; justify-content: flex-start !important; }
             
             .my-hand-cards { 
@@ -612,13 +614,12 @@
 
         <h4>Option B: Move a Joker</h4>
         <ul>
-            <li><strong>Activation:</strong> Jokers can only be moved once <strong>all</strong> jokers (2 or 3 depending on settings) have been placed on the board by the initial card plays.</li>
             <li><strong>Face-down:</strong> If you select an action card that is face-down, you must guess it correctly to be allowed to move a joker. If you guess wrong, you need to turn another face-up action card.</li>
         </ul>
 
         <h3>4. Penalties & Mercy Rule</h3>
         <ul>
-            <li><strong>The Penalty:</strong> If you cannot play a card or move a joker, you must flip one of your face-up action cards face-down.</li>
+            <li><strong>The Penalty:</strong> If you don't have a valid move, you must flip one of your face-up action cards face-down.</li>
             <li><strong>Mercy Rule:</strong> If all your action cards are face-down, you are "at mercy". On your next turn, you must attempt to guess a card. If the guess is wrong, or if the card is unplayable, the game is lost for everyone.</li>
         </ul>
 
@@ -646,7 +647,7 @@
         // =====================================
         // WEB PUSH LOGIK (ASYNKRONT SPEL)
         // =====================================
-        const PUBLIC_VAPID_KEY = 'BYT_UT_MOT_DIN_PUBLIKA_NYCKEL_HÄR';
+        const PUBLIC_VAPID_KEY = 'BAkfBsBJnEK-5BFAxC_RZk7x-WPrSRk_gaSuatT7QCUl43ExpxgknYZFxFXdNV07ER7mBUMFoY4x7IxOT0pe3M4';
 
         function urlB64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -705,7 +706,7 @@
         let roomLastAction = null;
         let roomLastActionTime = null;
         let previousActionTime = 0;
-        let localActionTriggerTime = 0; // NY LOKAL KLOCKA FÖR ANIMATIONER
+        let localActionTriggerTime = 0; 
 
         let setupSelection = { hand: [], buffer: [] };
         let setupInitialized = false;
@@ -937,20 +938,11 @@
                 } else {
                     if(isMyTurn) {
                         let hasFaceDown = player.buffer.some(c => c.isFacedown);
-                        let allJokersPlaced = cardsPlayedCount >= roomTotalJokers; 
-                        if (hasFaceDown) setStatus(allJokersPlaced ? `Your move! Play a green card, move a joker, or gamble on a face-down action card.` : `Your move! Play a green card or guess a face-down action card. No joker moving yet!`);
-                        else setStatus(allJokersPlaced ? `Your turn! Play a green card, or move a joker if you're feeling sneaky.` : `Your turn! Play a green card. Jokers are staying put for now.`);
+                        if (hasFaceDown) setStatus(`Your move! Play a green card, move a joker, or gamble on a face-down action card.`);
+                        else setStatus(`Your turn! Play a green card, or move a joker if you're feeling sneaky.`);
                     } else setStatus(`${player.name} is thinking... or just confused.`);
                 }
             }
-        }
-
-        function isCardPlayableIgnoringJokers(card) {
-            let state = currentBoardState[card.suit];
-            if (!state) return false;
-            if (card.value === state.min - 1) return true;
-            if (card.value === state.max + 1) return true;
-            return false;
         }
 
         function isCardPlayable(card) {
@@ -1219,10 +1211,10 @@
             let myTurnHasPlayable = false;
             let isMyTurn = localPlayers[activeTurn] && localPlayers[activeTurn].id === myPlayerId;
             if (isMyTurn && gamePhase === 'playing' && !localPlayers[activeTurn].mustReplace) {
-                localPlayers[activeTurn].buffer.forEach(c => { if (!c.isFacedown && isCardPlayableIgnoringJokers(c)) myTurnHasPlayable = true; });
+                localPlayers[activeTurn].buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
             }
             
-            let jokersActive = myTurnHasPlayable && cardsPlayedCount >= roomTotalJokers && interactionState === 'normal';
+            let jokersActive = myTurnHasPlayable && interactionState === 'normal';
             
             let shimmerSide = null; 
             let shimmerSuit = null;
@@ -1303,7 +1295,7 @@
         function renderPlayers() {
             let player = localPlayers[activeTurn]; let myTurnHasPlayable = false;
             if (player && player.id === myPlayerId && gamePhase === 'playing' && !player.mustReplace) {
-                player.buffer.forEach(c => { if (!c.isFacedown && isCardPlayableIgnoringJokers(c)) myTurnHasPlayable = true; });
+                player.buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
                 if (!myTurnHasPlayable && interactionState === 'normal') interactionState = 'blocked';
             }
 
@@ -1334,14 +1326,18 @@
                 }
                 pDiv.innerHTML = `<h3>${p.name} ${isMe ? '(You)' : ''} ${giveUpHtml}</h3>`;
 
-                const cardsContainer = document.createElement('div'); cardsContainer.className = 'my-cards-container';
+                const cardsContainer = document.createElement('div'); 
+                cardsContainer.className = isMe ? 'my-cards-container' : 'opponent-cards-container';
+                
                 const bufferWrapper = document.createElement('div'); bufferWrapper.className = 'buffer-wrapper';
                 
-                let bw = roomBufferSize === 4 ? 230 : (roomBufferSize === 3 ? 164 : 113);
-                bufferWrapper.style.flex = `0 0 ${bw}px`; bufferWrapper.style.minWidth = `${bw}px`;
+                if (isMe) {
+                    let bw = roomBufferSize === 4 ? 230 : (roomBufferSize === 3 ? 164 : 113);
+                    bufferWrapper.style.flex = `0 0 ${bw}px`; bufferWrapper.style.minWidth = `${bw}px`;
+                }
                 
                 const bufferSection = document.createElement('div'); bufferSection.className = 'player-section buffer-section';
-                let bufferTitle = `<h4 class="playable-title-mobile">Action cards</h4>`;
+                let bufferTitle = isMe ? `<h4 class="playable-title-mobile">Action cards</h4>` : `<h4 style="margin: 0 0 5px 0;">Action cards</h4>`;
                 bufferSection.innerHTML = bufferTitle;
                 
                 let bufferCardsDiv = document.createElement('div'); bufferCardsDiv.className = 'buffer-cards-div';
@@ -1390,36 +1386,47 @@
                 const handWrapper = document.createElement('div'); handWrapper.className = 'hand-wrapper';
                 const handSection = document.createElement('div'); handSection.className = 'player-section hand-section';
                 
-                let handTitle = isMe ? `<h4 class="my-hand-title">Hand</h4>` : `<h4 class="opponent-hand-title">Hand</h4><div class="opponent-hand-count-mobile"><img src="back-of-card.jpg" style="width:24px; height:36px; vertical-align:middle; border-radius:3px; border:1px solid #333; margin-right:5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
-                handSection.innerHTML = handTitle;
-                
-                let handCardsDiv = document.createElement('div'); handCardsDiv.className = isMe ? 'my-hand-cards' : 'opponent-hand-cards';
-                
-                p.hand.forEach((card, cIndex) => {
-                    const cardEl = createCardDOM(card, !isMe); cardEl.classList.add('hand-card');
-                    let canClickHand = false;
-                    if (isMe) {
+                if (isMe) {
+                    handSection.innerHTML = `<h4 class="my-hand-title">Hand</h4>`;
+                    let handCardsDiv = document.createElement('div'); handCardsDiv.className = 'my-hand-cards';
+                    
+                    p.hand.forEach((card, cIndex) => {
+                        const cardEl = createCardDOM(card, false); cardEl.classList.add('hand-card');
+                        let canClickHand = false;
                         if (gamePhase === 'setup' && !p.setupConfirmed && setupSelection.buffer.length < roomBufferSize) canClickHand = true;
                         if (gamePhase === 'playing' && pIndex === activeTurn && p.mustReplace && (interactionState === 'normal' || interactionState === 'blocked' || interactionState === 'waiting')) canClickHand = true; 
-                    }
-                    if (canClickHand) {
-                        cardEl.classList.add('clickable'); if (p.mustReplace) cardEl.style.boxShadow = "0 0 10px #e67e22"; 
-                        cardEl.onclick = () => {
-                            if (gamePhase === 'setup') {
-                                let c = setupSelection.hand.splice(cIndex, 1)[0]; c.isFacedown = false; setupSelection.buffer.push(c); renderPlayers();
-                            } else {
-                                if (interactionState === 'waiting') return; interactionState = 'waiting'; 
-                                socket.emit('fillBuffer', { roomName: myRoomName, playerId: myPlayerId, cardIndex: cIndex }, (res) => {
-                                    interactionState = 'normal'; if(!res.success) setStatus(res.msg);
-                                });
-                            }
-                        };
-                    }
-                    handCardsDiv.appendChild(cardEl);
-                });
+                        
+                        if (canClickHand) {
+                            cardEl.classList.add('clickable'); if (p.mustReplace) cardEl.style.boxShadow = "0 0 10px #e67e22"; 
+                            cardEl.onclick = () => {
+                                if (gamePhase === 'setup') {
+                                    let c = setupSelection.hand.splice(cIndex, 1)[0]; c.isFacedown = false; setupSelection.buffer.push(c); renderPlayers();
+                                } else {
+                                    if (interactionState === 'waiting') return; interactionState = 'waiting'; 
+                                    socket.emit('fillBuffer', { roomName: myRoomName, playerId: myPlayerId, cardIndex: cIndex }, (res) => {
+                                        interactionState = 'normal'; if(!res.success) setStatus(res.msg);
+                                    });
+                                }
+                            };
+                        }
+                        handCardsDiv.appendChild(cardEl);
+                    });
 
-                if (p.hand.length === 0) handCardsDiv.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
-                handSection.appendChild(handCardsDiv); handWrapper.appendChild(handSection); cardsContainer.appendChild(handWrapper); pDiv.appendChild(cardsContainer);
+                    if (p.hand.length === 0) handCardsDiv.innerHTML += '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
+                    handSection.appendChild(handCardsDiv);
+                } else {
+                    handSection.innerHTML = `<h4 style="margin: 0 0 5px 0;">Hand</h4>`;
+                    let handCardsDiv = document.createElement('div'); handCardsDiv.className = 'opponent-hand-cards';
+                    
+                    if (p.hand.length > 0) {
+                        handCardsDiv.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; font-size: 1.6em; color: #f1c40f; font-family: 'Pirata One', cursive;"><img src="back-of-card.jpg" style="width:36px; height:54px; vertical-align:middle; border-radius:4px; border:1px solid #333; margin-right:8px; box-shadow: 2px 2px 4px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
+                    } else {
+                        handCardsDiv.innerHTML = '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
+                    }
+                    handSection.appendChild(handCardsDiv);
+                }
+                
+                handWrapper.appendChild(handSection); cardsContainer.appendChild(handWrapper); pDiv.appendChild(cardsContainer);
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
                     let confirmDisabled = setupSelection.buffer.length !== roomBufferSize ? 'disabled' : '';
