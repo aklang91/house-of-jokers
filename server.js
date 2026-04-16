@@ -330,7 +330,6 @@ io.on('connection', (socket) => {
             player.mustReplace = false;
             delete player.replaceIndex; 
 
-            // KOLLAR OM MÄNNISKAN FÅR ETT EXTRA DRAG EFTER PÅFYLLNING
             let takesExtraTurn = false;
             if (player.earnedExtraTurn) {
                 player.earnedExtraTurn = false;
@@ -359,7 +358,7 @@ io.on('connection', (socket) => {
         let pIndex = room.players.findIndex(p => p.id === data.playerId);
         if(pIndex !== -1) {
             room.players[pIndex].buffer[data.bIndex].isFacedown = true;
-            room.players[pIndex].buffer[data.bIndex].knownByAI = true; // AI-MINNE AKTIVERAT
+            room.players[pIndex].buffer[data.bIndex].knownByAI = true; 
             room.markModified('players');
             await room.save();
             await nextTurn(room); 
@@ -373,12 +372,12 @@ io.on('connection', (socket) => {
         if (player && player.id === data.playerId) {
             if (player.buffer[data.penaltyIndex]) {
                 player.buffer[data.penaltyIndex].isFacedown = true;
-                player.buffer[data.penaltyIndex].knownByAI = true; // AI-MINNE AKTIVERAT
+                player.buffer[data.penaltyIndex].knownByAI = true; 
             }
             if (player.buffer[data.revertIndex]) {
                 player.buffer[data.revertIndex].isFacedown = true;
                 player.buffer[data.revertIndex].revealedThisTurn = false;
-                player.buffer[data.revertIndex].knownByAI = true; // AI-MINNE AKTIVERAT
+                player.buffer[data.revertIndex].knownByAI = true; 
             }
             room.markModified('players');
             await room.save();
@@ -451,7 +450,6 @@ io.on('connection', (socket) => {
             let cardInBuff = room.players[pIndex].buffer[bIndex];
             let playedCardWasFacedown = cardInBuff.isFacedown || cardInBuff.revealedThisTurn;
             
-            // TRIGGAR EXTRA DRAG OM DET ÄR ESS ELLER KUNG
             let isAceOrKing = (card.value === 1 || card.value === 13);
             room.players[pIndex].earnedExtraTurn = isAceOrKing;
 
@@ -597,10 +595,19 @@ io.on('connection', (socket) => {
                 b2.hand.forEach((c, index) => {
                     let state = r2.boardState[c.suit];
                     let distance = 99; 
-                    if (c.value > state.max) distance = c.value - state.max;
-                    else if (c.value < state.min) distance = state.min - c.value;
+                    let jokerPenalty = 0;
 
-                    let score = 100 - distance; 
+                    if (c.value > state.max) {
+                        distance = c.value - state.max;
+                        if (state.jokerMax) jokerPenalty = 5;
+                    } else if (c.value < state.min) {
+                        distance = state.min - c.value;
+                        if (state.jokerMin) jokerPenalty = 5;
+                    }
+
+                    // HÄR ÄR DEN NYA MATEMATIKEN FÖR KORTVAL
+                    let score = 100 - (distance * 10) - jokerPenalty; 
+                    
                     let nextValOut = (c.value >= 7) ? c.value + 1 : c.value - 1;
                     let helpsFriend = false;
                     
@@ -621,7 +628,6 @@ io.on('connection', (socket) => {
                 b2.buffer.splice(insertAt, 0, card);
                 b2.mustReplace = false; delete b2.replaceIndex; 
                 
-                // KOLLAR OM BOTEN FÅR ETT EXTRA DRAG EFTER PÅFYLLNING
                 let takesExtraTurn = false;
                 if (b2.earnedExtraTurn) {
                     b2.earnedExtraTurn = false;
@@ -661,7 +667,6 @@ io.on('connection', (socket) => {
             const getOpenPlayableCount = (player, board) => {
                 let count = 0;
                 player.buffer.forEach(c => { 
-                    // AI-MINNE AKTIVERAT HÄR: Boten kan nu rädda dig om du vänt ner ett kort den känner till!
                     if ((!c.isFacedown || c.knownByAI) && checkPlayability(c, board)) count++; 
                 });
                 return count;
@@ -810,7 +815,6 @@ io.on('connection', (socket) => {
                             let openEngines = [];
                             intermediate.buffer.forEach((c, bIndex) => {
                                 let side = checkPlayability(c, room.boardState);
-                                // AI-MINNE AKTIVERAT: Mellanhanden kan hjälpa till om deras kort är känt
                                 if (side && (!c.isFacedown || c.knownByAI)) openEngines.push({card: c, side: side});
                             });
 
@@ -982,7 +986,6 @@ io.on('connection', (socket) => {
 
         let playedCardWasFacedown = bot.buffer[engine.bIndex].revealedThisTurn || false;
         
-        // SÄTTER FLAGGA OM DET ÄR ETT ESS ELLER KUNG
         bot.earnedExtraTurn = (engine.card.value === 1 || engine.card.value === 13);
         
         bot.replaceIndex = engine.bIndex;
@@ -1056,12 +1059,12 @@ io.on('connection', (socket) => {
 
         let penaltyIndex = faceupIndices[Math.floor(Math.random() * faceupIndices.length)];
         bot.buffer[penaltyIndex].isFacedown = true;
-        bot.buffer[penaltyIndex].knownByAI = true; // AI-MINNE AKTIVERAT
+        bot.buffer[penaltyIndex].knownByAI = true; 
         
         if (needsRevert && revertIndex !== null) {
             bot.buffer[revertIndex].isFacedown = true;
             bot.buffer[revertIndex].revealedThisTurn = false;
-            bot.buffer[revertIndex].knownByAI = true; // AI-MINNE AKTIVERAT
+            bot.buffer[revertIndex].knownByAI = true; 
         }
 
         room.markModified('players');
