@@ -20,6 +20,21 @@
             color: #212121; 
             text-align: center; margin: 0; padding: 10px;
             font-family: 'Fondamento', cursive, serif; 
+            
+            /* Förhindrar textmarkering och sök-popups på mobilen: */
+            -webkit-user-select: none; 
+            -webkit-touch-callout: none; 
+            -moz-user-select: none; 
+            -ms-user-select: none; 
+            user-select: none; 
+        }
+
+        /* Tillåter fortfarande att man kan skriva i text- och rullgardinsmenyer */
+        input, select {
+            -webkit-user-select: auto;
+            -moz-user-select: auto;
+            -ms-user-select: auto;
+            user-select: auto;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -170,7 +185,6 @@
 
         .my-cards-container { display: flex; flex-direction: column; width: 100%; }
 
-        /* NY CSS FÖR MOTSTÅNDARNAS KORTLAYOUT (Lika höjd & max centrering) */
         .opponent-cards-container { 
             display: flex; flex-direction: row; justify-content: center; align-items: stretch; gap: 10px; width: 100%; 
         }
@@ -668,7 +682,7 @@
         // =====================================
         // WEB PUSH LOGIK (ASYNKRONT SPEL)
         // =====================================
-        const PUBLIC_VAPID_KEY = 'BAkfBsBJnEK-5BFAxC_RZk7x-WPrSRk_gaSuatT7QCUl43ExpxgknYZFxFXdNV07ER7mBUMFoY4x7IxOT0pe3M4';
+        const PUBLIC_VAPID_KEY = 'BYT_UT_MOT_DIN_PUBLIKA_NYCKEL_HÄR';
 
         function urlB64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
