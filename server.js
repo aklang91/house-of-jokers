@@ -761,13 +761,25 @@ io.on('connection', (socket) => {
             if (!chosenAction && myPlayableEngines.length > 0) {
                 // SCENARIO B: KRISHANTERING
                 if (targetPlayerInCrisis) {
+
+                    // Prio B0: Eliminera en joker för att rädda vännen (BÄSTA DRAGET)
+                    let jokerElimination = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
+                        return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
+                    });
+                    if (jokerElimination && jokerElimination.jTo.side === 'center') {
+                        chosenAction = jokerElimination;
+                        tauntMsg = `${bot.name} permanently eliminates a joker to rescue a blocked teammate!`;
+                    }
+
                     // Prio B1: Rädda med kort
-                    for (let eng of myPlayableEngines) {
-                        let nextBoard = simulatePlay(room.boardState, eng);
-                        if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
-                            chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to rescue a blocked teammate.`;
-                            break; 
+                    if (!chosenAction) {
+                        for (let eng of myPlayableEngines) {
+                            let nextBoard = simulatePlay(room.boardState, eng);
+                            if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
+                                chosenAction = { type: 'play', engine: eng }; 
+                                tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to rescue a blocked teammate.`;
+                                break; 
+                            }
                         }
                     }
 
@@ -799,7 +811,7 @@ io.on('connection', (socket) => {
                         }
                     }
 
-                    // Prio B3: Joker-räddning
+                    // Prio B3: Joker-räddning (vanlig flytt)
                     if (!chosenAction && targetPlayerInCrisis) {
                         let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
                             return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
