@@ -185,6 +185,9 @@
 
         .my-cards-container { display: flex; flex-direction: column; width: 100%; }
 
+        /* Tar bort extra luft mellan action cards och handen */
+        .my-cards-container .buffer-wrapper .player-section { margin-bottom: 2px; }
+
         .opponent-cards-container { 
             display: flex; flex-direction: row; justify-content: center; align-items: stretch; gap: 10px; width: 100%; 
         }
@@ -201,7 +204,19 @@
             flex: 1; margin-bottom: 0; padding: 5px; box-sizing: border-box; height: 100%;
         }
 
-        .my-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        /* Handen är nu en horisontell, scrollbar rad även på desktop */
+        .my-hand-cards { 
+            display: flex; 
+            flex-wrap: nowrap; 
+            justify-content: flex-start; 
+            gap: 8px; 
+            overflow-x: auto; 
+            padding-bottom: 8px;
+            padding-left: 2px; 
+            width: 100%; 
+            box-sizing: border-box; 
+        }
+        .my-hand-cards::after { content: ''; flex: 0 0 5px; } /* Ser till att sista kortet inte klistras mot kanten när man scrollar */
         
         .opponent-hand-cards { 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
@@ -391,7 +406,6 @@
                 justify-content: flex-start !important; 
             }
 
-            /* ÖVERRIDER FLEX-START FÖR ATT CENTRERA PÅ MOBILEN Också */
             .opponent-cards-container .buffer-section, 
             .opponent-cards-container .hand-section {
                 justify-content: center !important;
