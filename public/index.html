@@ -189,11 +189,11 @@
 
         .my-cards-container { display: flex; flex-direction: column; width: 100%; min-width: 0; }
 
-        .my-cards-container .buffer-wrapper .player-section { margin-bottom: 0px; }
-        .my-cards-container .hand-wrapper .player-section { margin-top: 0px; padding-top: 0px; }
+        /* Felsökt: Vi behåller all padding men minskar enbart marginalen för att ta bort "luften" */
+        .my-cards-container .buffer-wrapper .player-section { margin-bottom: 4px; }
         .my-hand-title { margin-top: 0px; margin-bottom: 5px; }
 
-        /* NY CSS FÖR MOTSTÅNDARNAS KORTLAYOUT: Nu placeras de ALLTID i kolumn (en ovanpå den andra) */
+        /* Desktop: Motståndarna ligger vertikalt ovanpå varandra (column) */
         .opponent-cards-container { 
             display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 100%; 
         }
@@ -208,6 +208,12 @@
         .opponent-cards-container .hand-section { 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
             margin-bottom: 0; padding: 5px; box-sizing: border-box; width: 100%;
+        }
+
+        /* Detta är den nya klassen för motståndarnas nedvända kort för att CSS ska kunna styra storleken */
+        .opp-hand-img {
+            width: 36px; height: 54px; vertical-align: middle; border-radius: 4px; 
+            border: 1px solid #333; margin-right: 8px; box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         .hand-wrapper { min-width: 0; } 
@@ -380,8 +386,17 @@
             .eliminated-joker::after { font-size: 28px !important; }
             .suit-row { margin: 3px 0 !important; }
 
-            .buffer-cards-div .card { margin: 0 !important; }
-            .my-hand-cards .card { margin: 0 !important; }
+            /* MOBIL: Motståndarna läggs i Rad-layout (Hand till höger om Action cards) */
+            .opponent-cards-container { 
+                flex-direction: row !important; 
+                align-items: stretch !important; 
+            }
+            .opponent-cards-container .buffer-wrapper { flex: 1 !important; width: auto !important; }
+            .opponent-cards-container .hand-wrapper { flex: 0 0 auto !important; min-width: 50px !important; }
+            
+            /* Säkra att text och ikon blir mindre på mobilen för att passa in snyggt */
+            .opponent-hand-cards { font-size: 1.2em !important; }
+            .opp-hand-img { width: 24px !important; height: 36px !important; margin-right: 4px !important; }
 
             #playersContainer { 
                 flex-direction: row !important; overflow-x: auto; justify-content: flex-start !important; 
@@ -1476,7 +1491,7 @@
                     let handCardsDiv = document.createElement('div'); handCardsDiv.className = 'opponent-hand-cards';
                     
                     if (p.hand.length > 0) {
-                        handCardsDiv.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; font-size: 1.6em; color: #f1c40f; font-family: 'Pirata One', cursive; margin: 0;"><img src="back-of-card.jpg" style="width:36px; height:54px; vertical-align:middle; border-radius:4px; border:1px solid #333; margin-right:8px; box-shadow: 2px 2px 4px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
+                        handCardsDiv.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; font-size: 1.6em; color: #f1c40f; font-family: 'Pirata One', cursive; margin: 0;"><img src="back-of-card.jpg" class="opp-hand-img"> x${p.hand.length}</div>`;
                     } else {
                         handCardsDiv.innerHTML = '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
                     }
