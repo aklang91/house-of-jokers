@@ -700,7 +700,7 @@ io.on('connection', (socket) => {
                 if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
             });
 
-            // ALLTID AKTIVT: Jokrarna är nu rörliga från start för AI:n också
+            // ALLTID AKTIVT: Jokrarna är rörliga från start för AI:n också
             let jokersActive = true;
             
             let activeTeammates = [];
@@ -710,7 +710,6 @@ io.on('connection', (socket) => {
             }
             
             let nextPlayer = activeTeammates.length > 0 ? activeTeammates[0] : null;
-            let allTeammatesCanPlay = activeTeammates.every(t => getOpenPlayableCount(t, room.boardState) > 0);
             let targetPlayerInCrisis = activeTeammates.find(t => getOpenPlayableCount(t, room.boardState) === 0);
 
             function findBestJokerMove(boardState, engine, conditionFn) {
@@ -796,7 +795,7 @@ io.on('connection', (socket) => {
                         }
 
                         if (canIntermediateSave) {
-                            targetPlayerInCrisis = null; 
+                            targetPlayerInCrisis = null; // Krisen avvärjd av en kompis!
                         }
                     }
 
@@ -812,8 +811,8 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                // SCENARIO A: FREDSTID 
-                if (!chosenAction && !targetPlayerInCrisis) {
+                // SCENARIO A: FREDSTID (Körs ALLTID om ingen action valdes i Kris-läget!)
+                if (!chosenAction) {
                     // Prio A1: Själv-kombos
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
@@ -912,7 +911,7 @@ io.on('connection', (socket) => {
             let r2 = await Room.findOne({ roomName: room.roomName });
             if (!r2) return;
             
-            // NY LOGIK FÖR BUGG 1: Kolla spelbarhet OCH definiera sidan!
+            // LOGIK FÖR BUGG 1: Kolla spelbarhet OCH definiera sidan!
             let isPlayable = false;
             let determinedSide = null;
             let state = r2.boardState[engine.card.suit];
