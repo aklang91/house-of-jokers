@@ -174,37 +174,44 @@
         
         .game-top-row { display: flex; align-items: stretch; gap: 20px; width: 100%; flex-wrap: nowrap; }
 
-        #myPlayerContainer { flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-shrink: 0; display: flex; box-sizing: border-box; }
+        #myPlayerContainer { 
+            flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-shrink: 0; display: flex; box-sizing: border-box; 
+            min-width: 0; 
+        }
         
         #myPlayerContainer .player-area {
             width: 100%; margin: 0; display: flex; flex-direction: column;
             background: #5a5a5a; border: 5px solid #d4af37; border-radius: 10px;
             padding: 10px; color: #ecf0f1; transition: background-color 0.4s ease; 
+            min-width: 0; 
         }
         #myPlayerContainer .player-area.active-turn { background: #155724; outline: 3px solid #f1c40f; }
 
-        .my-cards-container { display: flex; flex-direction: column; width: 100%; }
+        .my-cards-container { display: flex; flex-direction: column; width: 100%; min-width: 0; }
 
-        /* Tar bort extra luft mellan action cards och handen */
-        .my-cards-container .buffer-wrapper .player-section { margin-bottom: 2px; }
+        .my-cards-container .buffer-wrapper .player-section { margin-bottom: 0px; }
+        .my-cards-container .hand-wrapper .player-section { margin-top: 0px; padding-top: 0px; }
+        .my-hand-title { margin-top: 0px; margin-bottom: 5px; }
 
+        /* NY CSS FÖR MOTSTÅNDARNAS KORTLAYOUT: Nu placeras de ALLTID i kolumn (en ovanpå den andra) */
         .opponent-cards-container { 
-            display: flex; flex-direction: row; justify-content: center; align-items: stretch; gap: 10px; width: 100%; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 100%; 
         }
         .opponent-cards-container .buffer-wrapper, 
         .opponent-cards-container .hand-wrapper { 
-            display: flex; flex-direction: column; 
+            display: flex; flex-direction: column; width: 100%;
         }
         .opponent-cards-container .buffer-wrapper { flex: 0 0 auto; }
-        .opponent-cards-container .hand-wrapper { flex: 1; min-width: 80px; }
+        .opponent-cards-container .hand-wrapper { flex: 0 0 auto; }
         
         .opponent-cards-container .buffer-section, 
         .opponent-cards-container .hand-section { 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            flex: 1; margin-bottom: 0; padding: 5px; box-sizing: border-box; height: 100%;
+            margin-bottom: 0; padding: 5px; box-sizing: border-box; width: 100%;
         }
 
-        /* Handen är nu en horisontell, scrollbar rad även på desktop */
+        .hand-wrapper { min-width: 0; } 
+
         .my-hand-cards { 
             display: flex; 
             flex-wrap: nowrap; 
@@ -216,7 +223,7 @@
             width: 100%; 
             box-sizing: border-box; 
         }
-        .my-hand-cards::after { content: ''; flex: 0 0 5px; } /* Ser till att sista kortet inte klistras mot kanten när man scrollar */
+        .my-hand-cards::after { content: ''; flex: 0 0 5px; } 
         
         .opponent-hand-cards { 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
@@ -373,6 +380,9 @@
             .eliminated-joker::after { font-size: 28px !important; }
             .suit-row { margin: 3px 0 !important; }
 
+            .buffer-cards-div .card { margin: 0 !important; }
+            .my-hand-cards .card { margin: 0 !important; }
+
             #playersContainer { 
                 flex-direction: row !important; overflow-x: auto; justify-content: flex-start !important; 
                 padding-bottom: 10px; gap: 15px !important; -webkit-overflow-scrolling: touch;
@@ -427,7 +437,6 @@
             }
             .my-hand-cards::after { content: ''; flex: 0 0 5px; } 
             
-            .my-cards-container .card { margin: 0 !important; }
             .setup-controls-mobile { margin-top: 5px !important; margin-bottom: 15px !important; height: auto !important; }
             .lobby-input { font-size: 16px !important; padding: 10px !important; }
             .form-group label.group-title { font-size: 20px !important; }
