@@ -174,62 +174,34 @@
         
         .game-top-row { display: flex; align-items: stretch; gap: 20px; width: 100%; flex-wrap: nowrap; }
 
-        #myPlayerContainer { 
-            flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-shrink: 0; display: flex; box-sizing: border-box; 
-            min-width: 0; 
-        }
+        #myPlayerContainer { flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-shrink: 0; display: flex; box-sizing: border-box; }
         
         #myPlayerContainer .player-area {
             width: 100%; margin: 0; display: flex; flex-direction: column;
             background: #5a5a5a; border: 5px solid #d4af37; border-radius: 10px;
             padding: 10px; color: #ecf0f1; transition: background-color 0.4s ease; 
-            min-width: 0; 
         }
         #myPlayerContainer .player-area.active-turn { background: #155724; outline: 3px solid #f1c40f; }
 
-        .my-cards-container { display: flex; flex-direction: column; width: 100%; min-width: 0; }
+        .my-cards-container { display: flex; flex-direction: column; width: 100%; }
 
-        /* Felsökt: Vi behåller all padding men minskar enbart marginalen för att ta bort "luften" */
-        .my-cards-container .buffer-wrapper .player-section { margin-bottom: 4px; }
-        .my-hand-title { margin-top: 0px; margin-bottom: 5px; }
-
-        /* Desktop: Motståndarna ligger vertikalt ovanpå varandra (column) */
         .opponent-cards-container { 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 100%; 
+            display: flex; flex-direction: row; justify-content: center; align-items: stretch; gap: 10px; width: 100%; 
         }
         .opponent-cards-container .buffer-wrapper, 
         .opponent-cards-container .hand-wrapper { 
-            display: flex; flex-direction: column; width: 100%;
+            display: flex; flex-direction: column; 
         }
         .opponent-cards-container .buffer-wrapper { flex: 0 0 auto; }
-        .opponent-cards-container .hand-wrapper { flex: 0 0 auto; }
+        .opponent-cards-container .hand-wrapper { flex: 1; min-width: 80px; }
         
         .opponent-cards-container .buffer-section, 
         .opponent-cards-container .hand-section { 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            margin-bottom: 0; padding: 5px; box-sizing: border-box; width: 100%;
+            flex: 1; margin-bottom: 0; padding: 5px; box-sizing: border-box; height: 100%;
         }
 
-        /* Detta är den nya klassen för motståndarnas nedvända kort för att CSS ska kunna styra storleken */
-        .opp-hand-img {
-            width: 36px; height: 54px; vertical-align: middle; border-radius: 4px; 
-            border: 1px solid #333; margin-right: 8px; box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-
-        .hand-wrapper { min-width: 0; } 
-
-        .my-hand-cards { 
-            display: flex; 
-            flex-wrap: nowrap; 
-            justify-content: flex-start; 
-            gap: 8px; 
-            overflow-x: auto; 
-            padding-bottom: 8px;
-            padding-left: 2px; 
-            width: 100%; 
-            box-sizing: border-box; 
-        }
-        .my-hand-cards::after { content: ''; flex: 0 0 5px; } 
+        .my-hand-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
         
         .opponent-hand-cards { 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
@@ -386,18 +358,6 @@
             .eliminated-joker::after { font-size: 28px !important; }
             .suit-row { margin: 3px 0 !important; }
 
-            /* MOBIL: Motståndarna läggs i Rad-layout (Hand till höger om Action cards) */
-            .opponent-cards-container { 
-                flex-direction: row !important; 
-                align-items: stretch !important; 
-            }
-            .opponent-cards-container .buffer-wrapper { flex: 1 !important; width: auto !important; }
-            .opponent-cards-container .hand-wrapper { flex: 0 0 auto !important; min-width: 50px !important; }
-            
-            /* Säkra att text och ikon blir mindre på mobilen för att passa in snyggt */
-            .opponent-hand-cards { font-size: 1.2em !important; }
-            .opp-hand-img { width: 24px !important; height: 36px !important; margin-right: 4px !important; }
-
             #playersContainer { 
                 flex-direction: row !important; overflow-x: auto; justify-content: flex-start !important; 
                 padding-bottom: 10px; gap: 15px !important; -webkit-overflow-scrolling: touch;
@@ -431,6 +391,7 @@
                 justify-content: flex-start !important; 
             }
 
+            /* ÖVERRIDER FLEX-START FÖR ATT CENTRERA PÅ MOBILEN Också */
             .opponent-cards-container .buffer-section, 
             .opponent-cards-container .hand-section {
                 justify-content: center !important;
@@ -452,6 +413,7 @@
             }
             .my-hand-cards::after { content: ''; flex: 0 0 5px; } 
             
+            .my-cards-container .card { margin: 0 !important; }
             .setup-controls-mobile { margin-top: 5px !important; margin-bottom: 15px !important; height: auto !important; }
             .lobby-input { font-size: 16px !important; padding: 10px !important; }
             .form-group label.group-title { font-size: 20px !important; }
@@ -1491,7 +1453,7 @@
                     let handCardsDiv = document.createElement('div'); handCardsDiv.className = 'opponent-hand-cards';
                     
                     if (p.hand.length > 0) {
-                        handCardsDiv.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; font-size: 1.6em; color: #f1c40f; font-family: 'Pirata One', cursive; margin: 0;"><img src="back-of-card.jpg" class="opp-hand-img"> x${p.hand.length}</div>`;
+                        handCardsDiv.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; font-size: 1.6em; color: #f1c40f; font-family: 'Pirata One', cursive; margin: 0;"><img src="back-of-card.jpg" style="width:36px; height:54px; vertical-align:middle; border-radius:4px; border:1px solid #333; margin-right:8px; box-shadow: 2px 2px 4px rgba(0,0,0,0.5);"> x${p.hand.length}</div>`;
                     } else {
                         handCardsDiv.innerHTML = '<span style="font-size:0.8em; opacity:0.7;">(Empty)</span>';
                     }
