@@ -795,7 +795,7 @@ io.on('connection', (socket) => {
                         }
 
                         if (canIntermediateSave) {
-                            targetPlayerInCrisis = null; // Krisen avvärjd av en kompis!
+                            targetPlayerInCrisis = null; 
                         }
                     }
 
@@ -1048,6 +1048,7 @@ io.on('connection', (socket) => {
         
         if (needsRevert && revertIndex !== null) {
             bot.buffer[revertIndex].isFacedown = true;
+            // bugfix: se till att den inte är uppvänd
             bot.buffer[revertIndex].revealedThisTurn = false;
             bot.buffer[revertIndex].knownByAI = true; 
         }
