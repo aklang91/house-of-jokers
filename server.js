@@ -864,6 +864,9 @@ io.on('connection', (socket) => {
             }
 
             if (chosenAction) {
+                // Denna if-sats styr bara om den spelar upp en "taunt" innan draget.
+                // Om det är nedvänt OCH play, väntar den tills I executeBotAction med att gissa.
+                // Men om joker OCH nedvänt, går den hit. Det är okej, för vi gissar inne i execute nu!
                 if (chosenAction.type === 'joker' || !chosenAction.engine.isFacedown) {
                     io.to(roomName).emit('botTaunt', tauntMsg);
                     await sleep(3000);
@@ -912,10 +915,11 @@ io.on('connection', (socket) => {
         let bot = room.players[botIndex];
         let engine = action.engine;
         
-        if (action.type === 'play' && engine.isFacedown) {
+        // ÄNDRAT HÄR FÖR BUGG-FIXEN: Kollar om "motorn" är nedvänd, oavsett om det är ett 'play' eller 'joker'-drag
+        if (engine.isFacedown) {
             let guessCorrect = Math.random() < 0.90; 
             
-            io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to play a face-down action card...`);
+            io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to use a face-down action card...`);
             await sleep(2500);
             io.to(room.roomName).emit('showTempReveal', { roomName: room.roomName, pIndex: botIndex, bIndex: engine.bIndex, card: engine.card, nextState: 'normal' });
             await sleep(3500);
@@ -923,21 +927,25 @@ io.on('connection', (socket) => {
             let r2 = await Room.findOne({ roomName: room.roomName });
             if (!r2) return;
             
-            // LOGIK FÖR BUGG 1: Kolla spelbarhet OCH definiera sidan!
             let isPlayable = false;
             let determinedSide = null;
-            let state = r2.boardState[engine.card.suit];
 
-            if (engine.card.value === state.max + 1 && !state.jokerMax) {
+            if (action.type === 'play') {
+                let state = r2.boardState[engine.card.suit];
+                if (engine.card.value === state.max + 1 && !state.jokerMax) {
+                    isPlayable = true;
+                    determinedSide = 'max';
+                } else if (engine.card.value === state.min - 1 && !state.jokerMin) {
+                    isPlayable = true;
+                    determinedSide = 'min';
+                }
+            } else if (action.type === 'joker') {
+                // Ett drag med jokern är i sig giltigt om boten bara gissar rätt på kortet.
                 isPlayable = true;
-                determinedSide = 'max';
-            } else if (engine.card.value === state.min - 1 && !state.jokerMin) {
-                isPlayable = true;
-                determinedSide = 'min';
             }
 
             if (guessCorrect && isPlayable) { 
-                engine.side = determinedSide; // <-- HÄR STÄMPLAS RÄTT SIDA IN INNAN DEN SPELAS!
+                if (action.type === 'play') engine.side = determinedSide; 
 
                 io.to(r2.roomName).emit('botTaunt', `${bot.name} correctly remembered the card.`);
                 r2.players[botIndex].buffer[engine.bIndex].isFacedown = false;
@@ -946,7 +954,9 @@ io.on('connection', (socket) => {
                 await r2.save();
                 io.to(r2.roomName).emit('updatePlayers', r2);
                 await sleep(2500);
-                await finalizeBotPlay(r2, botIndex, engine);
+                
+                if (action.type === 'joker') await finalizeBotJoker(r2, botIndex, action.jFrom, action.jTo);
+                else await finalizeBotPlay(r2, botIndex, engine);
             } else {
                 if (!guessCorrect) io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and must turn down an action card.`);
                 else io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Turning down an action card.`);
@@ -1060,7 +1070,6 @@ io.on('connection', (socket) => {
         
         if (needsRevert && revertIndex !== null) {
             bot.buffer[revertIndex].isFacedown = true;
-            // bugfix: se till att den inte är uppvänd
             bot.buffer[revertIndex].revealedThisTurn = false;
             bot.buffer[revertIndex].knownByAI = true; 
         }
