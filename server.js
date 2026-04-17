@@ -912,9 +912,22 @@ io.on('connection', (socket) => {
             let r2 = await Room.findOne({ roomName: room.roomName });
             if (!r2) return;
             
-            let isPlayable = isCardPlayableServer(engine.card, r2.boardState);
+            // NY LOGIK FÖR BUGG 1: Kolla spelbarhet OCH definiera sidan!
+            let isPlayable = false;
+            let determinedSide = null;
+            let state = r2.boardState[engine.card.suit];
+
+            if (engine.card.value === state.max + 1 && !state.jokerMax) {
+                isPlayable = true;
+                determinedSide = 'max';
+            } else if (engine.card.value === state.min - 1 && !state.jokerMin) {
+                isPlayable = true;
+                determinedSide = 'min';
+            }
 
             if (guessCorrect && isPlayable) { 
+                engine.side = determinedSide; // <-- HÄR STÄMPLAS RÄTT SIDA IN INNAN DEN SPELAS!
+
                 io.to(r2.roomName).emit('botTaunt', `${bot.name} correctly remembered the card.`);
                 r2.players[botIndex].buffer[engine.bIndex].isFacedown = false;
                 r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
