@@ -1,0 +1,20 @@
+{
+  "name": "House of Jokers",
+  "short_name": "Jokers",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a5e2a",
+  "theme_color": "#d4af37",
+  "icons": [
+    {
+      "src": "joker.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "joker.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
