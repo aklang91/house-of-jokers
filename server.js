@@ -385,23 +385,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('tempReveal', (data) => {
-        io.to(data.roomName).emit('showTempReveal', data);
-    });
-
-    socket.on('revealCard', async (data) => {
-        let room = await Room.findOne({ roomName: data.roomName });
-        if(!room) return;
-        let pIndex = room.players.findIndex(p => p.id === data.playerId);
-        if(pIndex !== -1) {
-            room.players[pIndex].buffer[data.bIndex].isFacedown = false;
-            room.players[pIndex].buffer[data.bIndex].revealedThisTurn = true; 
-            room.markModified('players');
-            await room.save();
-            io.to(data.roomName).emit('updatePlayers', room);
-        }
-    });
-
     socket.on('gameOver', async (data) => {
         let room = await Room.findOne({ roomName: data.roomName });
         if(!room) return;
@@ -697,6 +680,7 @@ io.on('connection', (socket) => {
             let myPlayableEngines = [];
             bot.buffer.forEach((c, bIndex) => {
                 let side = checkPlayability(c, room.boardState);
+                // Boten ser nu sina egna nedvända kort, så de utvärderas direkt!
                 if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
             });
 
@@ -864,46 +848,31 @@ io.on('connection', (socket) => {
             }
 
             if (chosenAction) {
-                // Denna if-sats styr bara om den spelar upp en "taunt" innan draget.
-                // Om det är nedvänt OCH play, väntar den tills I executeBotAction med att gissa.
-                // Men om joker OCH nedvänt, går den hit. Det är okej, för vi gissar inne i execute nu!
-                if (chosenAction.type === 'joker' || !chosenAction.engine.isFacedown) {
-                    io.to(roomName).emit('botTaunt', tauntMsg);
-                    await sleep(3000);
-                    let r2 = await Room.findOne({ roomName });
-                    if(r2) await executeBotAction(r2, botIndex, chosenAction);
-                } else {
-                    await executeBotAction(room, botIndex, chosenAction);
-                }
+                io.to(roomName).emit('botTaunt', tauntMsg);
+                await sleep(3000);
+                let r2 = await Room.findOne({ roomName });
+                if(r2) await executeBotAction(r2, botIndex, chosenAction);
                 return;
             }
 
             // PANIK-LÄGE
-            let facedownIndices = [];
             let faceupIndices = [];
             bot.buffer.forEach((c, i) => {
-                if (c.isFacedown) facedownIndices.push(i);
-                else faceupIndices.push(i);
+                if (!c.isFacedown) faceupIndices.push(i);
             });
 
-            if (facedownIndices.length > 0) {
-                let bIndex = facedownIndices[Math.floor(Math.random() * facedownIndices.length)];
-                let mockAction = { type: 'play', engine: { card: bot.buffer[bIndex], bIndex: bIndex, isFacedown: true } };
-                await executeBotAction(room, botIndex, mockAction);
+            if (faceupIndices.length > 0) {
+                io.to(roomName).emit('botTaunt', `${bot.name} is completely blocked and must turn down an action card.`);
+                await sleep(3500); 
+                let r2 = await Room.findOne({ roomName });
+                if(r2) await applyBotPenalty(r2, botIndex, false, null);
             } else {
-                if (faceupIndices.length > 0) {
-                    io.to(roomName).emit('botTaunt', `${bot.name} is completely blocked and must turn down an action card.`);
-                    await sleep(3500); 
-                    let r2 = await Room.findOne({ roomName });
-                    if(r2) await applyBotPenalty(r2, botIndex, false, null);
-                } else {
-                    room.gamePhase = 'gameover';
-                    await room.save();
-                    io.to(roomName).emit('gameEnded', { msg: `${bot.name} is completely stuck and out of options. You lost!` });
-                    room.players.forEach(p => {
-                        if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} is stuck. You lost!`);
-                    });
-                }
+                room.gamePhase = 'gameover';
+                await room.save();
+                io.to(roomName).emit('gameEnded', { msg: `${bot.name} is completely stuck and out of options. You lost!` });
+                room.players.forEach(p => {
+                    if(!p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${bot.name} is stuck. You lost!`);
+                });
             }
 
         } catch (e) {
@@ -912,59 +881,12 @@ io.on('connection', (socket) => {
     }
 
     async function executeBotAction(room, botIndex, action) {
-        let bot = room.players[botIndex];
         let engine = action.engine;
         
-        // ÄNDRAT HÄR FÖR BUGG-FIXEN: Kollar om "motorn" är nedvänd, oavsett om det är ett 'play' eller 'joker'-drag
-        if (engine.isFacedown) {
-            let guessCorrect = Math.random() < 0.90; 
-            
-            io.to(room.roomName).emit('botTaunt', `${bot.name} is attempting to use a face-down action card...`);
-            await sleep(2500);
-            io.to(room.roomName).emit('showTempReveal', { roomName: room.roomName, pIndex: botIndex, bIndex: engine.bIndex, card: engine.card, nextState: 'normal' });
-            await sleep(3500);
-            
-            let r2 = await Room.findOne({ roomName: room.roomName });
-            if (!r2) return;
-            
-            let isPlayable = false;
-            let determinedSide = null;
-
-            if (action.type === 'play') {
-                let state = r2.boardState[engine.card.suit];
-                if (engine.card.value === state.max + 1 && !state.jokerMax) {
-                    isPlayable = true;
-                    determinedSide = 'max';
-                } else if (engine.card.value === state.min - 1 && !state.jokerMin) {
-                    isPlayable = true;
-                    determinedSide = 'min';
-                }
-            } else if (action.type === 'joker') {
-                // Ett drag med jokern är i sig giltigt om boten bara gissar rätt på kortet.
-                isPlayable = true;
-            }
-
-            if (guessCorrect && isPlayable) { 
-                if (action.type === 'play') engine.side = determinedSide; 
-
-                io.to(r2.roomName).emit('botTaunt', `${bot.name} correctly remembered the card.`);
-                r2.players[botIndex].buffer[engine.bIndex].isFacedown = false;
-                r2.players[botIndex].buffer[engine.bIndex].revealedThisTurn = true;
-                r2.markModified('players');
-                await r2.save();
-                io.to(r2.roomName).emit('updatePlayers', r2);
-                await sleep(2500);
-                
-                if (action.type === 'joker') await finalizeBotJoker(r2, botIndex, action.jFrom, action.jTo);
-                else await finalizeBotPlay(r2, botIndex, engine);
-            } else {
-                if (!guessCorrect) io.to(r2.roomName).emit('botTaunt', `${bot.name} guessed incorrectly and must turn down an action card.`);
-                else io.to(r2.roomName).emit('botTaunt', `${bot.name} remembered the card, but it cannot be played. Turning down an action card.`);
-                await applyBotPenalty(r2, botIndex, (guessCorrect && !isPlayable), engine.bIndex);
-            }
+        if (action.type === 'joker') {
+            await finalizeBotJoker(room, botIndex, action.jFrom, action.jTo);
         } else {
-            if (action.type === 'joker') await finalizeBotJoker(room, botIndex, action.jFrom, action.jTo);
-            else await finalizeBotPlay(room, botIndex, engine);
+            await finalizeBotPlay(room, botIndex, engine);
         }
     }
 
@@ -1005,7 +927,7 @@ io.on('connection', (socket) => {
         room.lastAction = { type: 'play', playerName: bot.name, card: engine.card, side: engine.side };
         room.lastActionTime = Date.now();
 
-        let playedCardWasFacedown = bot.buffer[engine.bIndex].revealedThisTurn || false;
+        let playedCardWasFacedown = bot.buffer[engine.bIndex].isFacedown;
         bot.earnedExtraTurn = (engine.card.value === 1 || engine.card.value === 13);
         bot.replaceIndex = engine.bIndex;
         bot.buffer.splice(engine.bIndex, 1);
@@ -1094,14 +1016,29 @@ io.on('connection', (socket) => {
         }
         if (!pIdToFind) return;
         let playerIndex = room.players.findIndex(p => p.id === pIdToFind);
+        
         if (playerIndex !== -1) { 
             let player = room.players[playerIndex];
+            
+            // Ny logik för att avbryta rum om Host lämnar lobbyn
+            if (room.gamePhase === 'waiting' && room.hostId === pIdToFind) {
+                room.players.forEach(p => { 
+                    if (p.id !== player.id && !p.isBot) {
+                        sendPush(p, 'House of Jokers', `${player.name} canceled the room ${room.roomName}`); 
+                    } 
+                });
+                io.to(room.roomName).emit('roomCanceled', { msg: `${player.name} canceled the room.` });
+                await Room.deleteOne({ roomName: room.roomName });
+                return;
+            }
+
             if (room.gamePhase !== 'waiting' && room.gamePhase !== 'gameover') {
                 io.to(room.roomName).emit('playerLeft', { msg: `${player.name} chose to leave. You have lost.` });
                 room.players.forEach(p => { if (p.id !== player.id && !p.isBot) sendPush(p, 'House of Jokers', `Game Over! ${player.name} abandoned. You lost!`); });
                 await Room.deleteOne({ roomName: room.roomName }); 
                 return;
             }
+            
             room.players.splice(playerIndex, 1);
             if (room.players.length === 0 || room.gamePhase === 'gameover') await Room.deleteOne({ roomName: room.roomName });
             else {

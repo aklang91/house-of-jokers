@@ -259,6 +259,13 @@
         }
         .facedown::after { display: none !important; }
         
+        /* NY: Skuggning/mörkare bakgrund för ens egna "nedvända" men synliga kort */
+        .self-facedown {
+            background-color: #e0dcc7 !important; 
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 2px 2px 5px rgba(0,0,0,0.5) !important;
+            filter: brightness(0.85);
+        }
+
         .glow-green { box-shadow: 0 0 8px 2px #2ecc71 !important; border: 2px solid #2ecc71 !important; }
         .glow-red { box-shadow: 0 0 8px 2px #e74c3c !important; border: 2px solid #e74c3c !important; }
         .glow-yellow { box-shadow: 0 0 8px 2px #f1c40f !important; border: 2px solid #f1c40f !important; }
@@ -395,12 +402,6 @@
                 justify-content: flex-start !important; 
             }
 
-            .opponent-cards-container .buffer-section, 
-            .opponent-cards-container .hand-section {
-                justify-content: center !important;
-                align-items: center !important;
-            }
-
             .my-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
                 display: block !important; margin: 0 0 5px 0 !important; font-size: 16px !important;
                 text-align: left !important; color: #f1c40f !important; font-family: 'Pirata One', display, cursive !important;
@@ -442,6 +443,10 @@
         #playerLeftDialog { border: 4px solid #d4af37; background: #155724; color: #ecf0f1; }
         #playerLeftDialog h3 { color: #f1c40f; font-size: 1.8em; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
         #playerLeftDialog p { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; }
+
+        #roomCanceledDialog { border: 4px solid #e74c3c; background: #155724; color: #ecf0f1; }
+        #roomCanceledDialog h3 { color: #e74c3c; font-size: 1.8em; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        #roomCanceledDialog p { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -540,7 +545,8 @@
 
     <div id="waitingView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
-        <h3 id="waitingRoomName" style="color: #ffffff; border-bottom: 1px solid #d4af37; padding-bottom: 10px;">Room name: </h3>
+        <h3 id="waitingRoomName" style="color: #ffffff; padding-bottom: 5px; margin-bottom: 0;">Room name: </h3>
+        <h4 id="waitingRoomInfo" style="color: #f1c40f; border-bottom: 1px solid #d4af37; padding-bottom: 10px; margin-top: 5px;"></h4>
         <h3 style="color: #ffffff; margin-top: 15px;">Connected players:</h3>
         <div id="waitingJoinMessages" style="margin: 10px 0; color: #ffffff; font-weight: bold; line-height: 1.5; font-style: normal;"></div>
         <h4 id="waitingText" style="color: #ffffff; margin-top: 15px;">Waiting for players...</h4>
@@ -587,6 +593,11 @@
         <button class="btn-red" onclick="returnToLobby()">Return to home</button>
     </dialog>
 
+    <dialog id="roomCanceledDialog" style="border: 4px solid #e74c3c; background: #155724; color: #ecf0f1;">
+        <h3 style="color: #e74c3c; font-size: 1.8em; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">Room Canceled</h3><p id="roomCanceledMsg" style="font-size: 1.2em; font-weight: bold; margin-bottom: 20px;"></p>
+        <button class="btn-red" onclick="returnToLobby()">Return to home</button>
+    </dialog>
+
     <dialog id="winDialog">
         <h2>YOU WON!</h2><p id="winMsg">Congratulations, you won the game together!</p>
         <button class="btn-green" onclick="returnToLobby()">Return to home</button>
@@ -595,27 +606,6 @@
     <dialog id="loseDialog">
         <h2>GAME OVER</h2><p id="loseMsg">You lost...</p>
         <button class="btn-red" onclick="returnToLobby()">Return to home</button>
-    </dialog>
-
-    <dialog id="guessDialog" style="background:#ecf0f1;">
-        <h3>Which card is this?</h3>
-        <div style="margin-bottom: 15px;">
-            <select id="guessSuit">
-                <option value="♠">Spades (♠)</option>
-                <option value="♥">Hearts (♥)</option>
-                <option value="♦">Diamonds (♦)</option>
-                <option value="♣">Clubs (♣)</option>
-            </select>
-            <select id="guessValue">
-                <option value="1">A</option><option value="2">2</option><option value="3">3</option>
-                <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-                <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-                <option value="10">10</option><option value="11">J</option><option value="12">Q</option>
-                <option value="13">K</option>
-            </select>
-        </div>
-        <button class="btn-green" onclick="submitGuess()">Guess</button>
-        <button class="btn-red" onclick="document.getElementById('guessDialog').close()">Cancel</button>
     </dialog>
 
     <dialog id="instructionsDialog">
@@ -634,7 +624,7 @@
         <h3>2. Objective</h3>
         <ul>
             <li><strong>Victory:</strong> The group wins when all 52 cards are placed in complete sequences (Ace to King) for all four suits.</li>
-            <li><strong>Defeat:</strong> The group loses if a player is "at mercy" (all action cards are face-down) and fails to correctly guess and play a card.</li>
+            <li><strong>Defeat:</strong> The group loses if a player needs to take a penalty but has no face-up action cards left to turn face-down.</li>
         </ul>
 
         <h3>3. How to Play</h3>
@@ -643,22 +633,21 @@
         <h4>Option A: Play a Card</h4>
         <ul>
             <li>Play an <strong>action card</strong> that fits the sequence on the board (e.g., a 6 or 8 on a 7).</li>
-            <li><strong>Face-down:</strong> If you select a face-down action card, you must first guess which card it is. If you guess correctly, you may play it. If you guess wrong, the card is flipped back face-down, and you must flip another face-up action card face-down as a penalty.</li>
+            <li><strong>Face-down cards:</strong> Face-down action cards are temporarily revealed to you on your turn, so you can play them normally. However, they remain hidden from your teammates!</li>
             <li><strong>Locking the Suit:</strong> When an Ace or King is played, that side of the sequence is closed.</li>
-            <li><strong>Extra Turn:</strong> If you play an Ace or King, and you still have at least one face-up action card that can be played, you get an extra turn immediately!</li>
+            <li><strong>Extra Turn:</strong> If you play an Ace or King, and you still have at least one valid action card that can be played, you get an extra turn immediately!</li>
             <li><strong>Refilling:</strong> After playing a card, take a new one from your hand to fill the empty slot. If you played a face-up card, the new one is placed face-up. If you played a face-down card, the new one is placed face-down.</li>
         </ul>
 
         <h4>Option B: Move a Joker</h4>
         <ul>
-            <li><strong>Movement:</strong> A joker can be moved to any open end of a sequence. It cannot be placed on a closed (Ace/King) side. You can move a joker onto a Seven only when the Seven is completed (its sides have reached the Ace and King, respectively) to eliminate the joker permanently.</li>
-            <li><strong>Face-down:</strong> If you select an action card that is face-down, you must guess it correctly to be allowed to move a joker. If you guess wrong, you need to turn another face-up action card.</li>
+            <li><strong>Movement:</strong> A joker can be moved to any open end of a sequence using any of your action cards. It cannot be placed on a closed (Ace/King) side. You can move a joker onto a Seven only when the Seven is completed (its sides have reached the Ace and King, respectively) to eliminate the joker permanently.</li>
         </ul>
 
         <h3>4. Penalties & Mercy Rule</h3>
         <ul>
-            <li><strong>The Penalty:</strong> If you don't have a valid move, you must flip one of your face-up action cards face-down.</li>
-            <li><strong>Mercy Rule:</strong> If all your action cards are face-down, you are "at mercy". On your next turn, you must attempt to guess a card. If the guess is wrong, or if the card is unplayable, the game is lost for everyone.</li>
+            <li><strong>The Penalty:</strong> If you don't have a valid move, you must flip one of your face-up action cards face-down. This makes it harder for your team to plan ahead.</li>
+            <li><strong>Mercy Rule:</strong> If you are completely blocked and all your action cards are already face-down, you have no cards left to pay the penalty with. The game is instantly lost for everyone!</li>
         </ul>
 
         <h3>5. Laws of the Jokers</h3>
@@ -736,7 +725,6 @@
         let totalTurns = 0;
         
         let interactionState = 'normal'; 
-        let pendingGuessCard = null; 
         let cardToRevert = null; 
         
         let roomLastAction = null;
@@ -870,6 +858,7 @@
             if (myRoomName) socket.emit('leaveGame', { roomName: myRoomName, playerId: myPlayerId });
             localStorage.removeItem('hoj_roomName');
             document.getElementById('playerLeftDialog').close();
+            document.getElementById('roomCanceledDialog').close();
             document.getElementById('winDialog').close();
             document.getElementById('loseDialog').close();
             
@@ -894,6 +883,7 @@
 
         socket.on('roomUpdate', (room) => {
             document.getElementById('waitingRoomName').innerText = `Room name: ${room.roomName}`;
+            document.getElementById('waitingRoomInfo').innerText = `Difficulty: ${room.bufferSize} Action Cards | Jokers: ${room.totalJokers}`;
             let playerListHTML = room.players.map(p => `<div>${p.name} joined the party.</div>`).join('');
             document.getElementById('waitingJoinMessages').innerHTML = playerListHTML;
 
@@ -919,6 +909,12 @@
         socket.on('playerLeft', (data) => {
             document.getElementById('playerLeftMsg').innerText = data.msg;
             document.getElementById('playerLeftDialog').showModal();
+            localStorage.removeItem('hoj_roomName');
+        });
+        
+        socket.on('roomCanceled', (data) => {
+            document.getElementById('roomCanceledMsg').innerText = data.msg;
+            document.getElementById('roomCanceledDialog').showModal();
             localStorage.removeItem('hoj_roomName');
         });
 
@@ -964,18 +960,14 @@
                 else setStatus(`Waiting for ${player.name} to refill their cards. Tick tock...`);
             } else {
                 if (interactionState === 'blocked') {
-                    let hasFaceDown = player.buffer.some(c => c.isFacedown);
                     let hasFaceUpUnplayable = player.buffer.some(c => !c.isFacedown && !isCardPlayable(c));
                     if(isMyTurn) {
-                        if (!hasFaceDown) setStatus(`Uh oh, stuck are we? Tap a red action card to flip it face-down as a penalty.`);
-                        else if (hasFaceDown && hasFaceUpUnplayable) setStatus(`You're stuck! Guess a face-down action card, or take a penalty and flip a red one.`);
-                        else setStatus(`Only face-down action cards left! Time to test your memory... tap one to guess.`);
+                        if (hasFaceUpUnplayable) setStatus(`Uh oh, stuck are we? Tap a red action card to flip it face-down as a penalty.`);
+                        else setStatus(`You are completely stuck. No face-up action cards left to turn down!`);
                     } else setStatus(`${player.name} is stuck and has to make a tough choice.`);
                 } else {
                     if(isMyTurn) {
-                        let hasFaceDown = player.buffer.some(c => c.isFacedown);
-                        if (hasFaceDown) setStatus(`Your move! Play a green card, move a joker, or gamble on a face-down action card.`);
-                        else setStatus(`Your turn! Play a green card, or move a joker if you're feeling sneaky.`);
+                        setStatus(`Your turn! Play a green card, or move a joker if you're feeling sneaky.`);
                     } else setStatus(`${player.name} is thinking... or just confused.`);
                 }
             }
@@ -1021,7 +1013,7 @@
             if (pIndex !== activeTurn) { ev.preventDefault(); return; }
             
             let card = localPlayers[pIndex].buffer[bIndex];
-            if (interactionState === 'normal' && isCardPlayable(card) && !card.isFacedown) {
+            if (interactionState === 'normal' && isCardPlayable(card)) {
                 ev.dataTransfer.setData("type", "card"); ev.dataTransfer.setData("pIndex", pIndex); ev.dataTransfer.setData("bIndex", bIndex);
                 setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0);
             } else ev.preventDefault();
@@ -1124,7 +1116,7 @@
                 return;
             }
 
-            if (interactionState === 'normal' && isCardPlayable(card) && !card.isFacedown) {
+            if (interactionState === 'normal' && isCardPlayable(card)) {
                 let targetSuit = card.suit; let state = currentBoardState[targetSuit];
                 let targetSide = (card.value === state.max + 1) ? 'max' : 'min';
                 interactionState = 'waiting'; 
@@ -1138,81 +1130,7 @@
             if (interactionState === 'penalty' || interactionState === 'penalty_with_revert') {
                 setStatus("Hey, you have to pick a face-up action card with a red glow to turn down!"); return;
             }
-
-            if (interactionState === 'blocked' || interactionState === 'normal') {
-                if (card.isFacedown) {
-                    document.getElementById('guessSuit').value = '♥'; document.getElementById('guessValue').value = '1';
-                    pendingGuessCard = { pIndex, bIndex, card }; document.getElementById('guessDialog').showModal();
-                } else if (interactionState === 'blocked') {
-                    interactionState = 'waiting'; socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
-                }
-            }
         }
-
-        function submitGuess() {
-            document.getElementById('guessDialog').close();
-            const guessSuit = document.getElementById('guessSuit').value;
-            const guessValue = parseInt(document.getElementById('guessValue').value);
-            let faceUpCountBefore = localPlayers[activeTurn].buffer.filter(c => !c.isFacedown).length;
-            const actualCard = pendingGuessCard.card;
-            
-            interactionState = 'waiting'; 
-
-            if (actualCard.suit === guessSuit && actualCard.value === guessValue) {
-                let isPlayable = isCardPlayable(actualCard);
-
-                if (isPlayable) {
-                    socket.emit('revealCard', { roomName: myRoomName, playerId: myPlayerId, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex });
-                    pendingGuessCard.card.isFacedown = false; 
-                    interactionState = 'normal'; 
-                    showTemporaryTaunt("Damn! You guessed right!");
-                    pendingGuessCard = null; 
-                    renderPlayers(); 
-                    renderBoard(); 
-                } else {
-                    if (faceUpCountBefore === 0) {
-                        socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed correctly, but the card couldn't be played and there are no other cards to turn down. You lost!` });
-                    } else {
-                        socket.emit('tempReveal', { roomName: myRoomName, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex, card: actualCard, nextState: 'penalty' });
-                        showTemporaryTaunt(`Right card, wrong time! Take your penalty.`);
-                    }
-                }
-            } else {
-                if (faceUpCountBefore === 0) {
-                    socket.emit('gameOver', { roomName: myRoomName, msg: `${localPlayers[activeTurn].name} guessed wrong on their last face-down action card. You lost the game!` });
-                } else {
-                    socket.emit('tempReveal', { roomName: myRoomName, pIndex: pendingGuessCard.pIndex, bIndex: pendingGuessCard.bIndex, card: actualCard, nextState: 'penalty' });
-                    showTemporaryTaunt(`Haha! You guessed wrong! Turn an action card down.`);
-                }
-            }
-            
-            if (interactionState !== 'waiting') {
-                pendingGuessCard = null; 
-            }
-        }
-
-        socket.on('showTempReveal', (data) => {
-            let p = localPlayers[data.pIndex];
-            if (p && p.buffer[data.bIndex]) {
-                let originalFacedown = p.buffer[data.bIndex].isFacedown;
-                p.buffer[data.bIndex].isFacedown = false; 
-                p.buffer[data.bIndex].tempReveal = true; 
-                
-                renderPlayers(); 
-
-                setTimeout(() => {
-                    p.buffer[data.bIndex].isFacedown = originalFacedown; 
-                    delete p.buffer[data.bIndex].tempReveal;
-                    
-                    if (data.pIndex === activeTurn && localPlayers[activeTurn].id === myPlayerId) {
-                        interactionState = data.nextState; 
-                        pendingGuessCard = null;
-                    }
-                    renderPlayers();
-                    updateMainStatus();
-                }, 3000); 
-            }
-        });
 
         socket.on('botTaunt', (msg) => {
             showTemporaryTaunt(msg);
@@ -1247,7 +1165,7 @@
             let myTurnHasPlayable = false;
             let isMyTurn = localPlayers[activeTurn] && localPlayers[activeTurn].id === myPlayerId;
             if (isMyTurn && gamePhase === 'playing' && !localPlayers[activeTurn].mustReplace) {
-                localPlayers[activeTurn].buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
+                localPlayers[activeTurn].buffer.forEach(c => { if (isCardPlayable(c)) myTurnHasPlayable = true; });
             }
             
             let jokersActive = myTurnHasPlayable && interactionState === 'normal';
@@ -1331,7 +1249,7 @@
         function renderPlayers() {
             let player = localPlayers[activeTurn]; let myTurnHasPlayable = false;
             if (player && player.id === myPlayerId && gamePhase === 'playing' && !player.mustReplace) {
-                player.buffer.forEach(c => { if (!c.isFacedown && isCardPlayable(c)) myTurnHasPlayable = true; });
+                player.buffer.forEach(c => { if (isCardPlayable(c)) myTurnHasPlayable = true; });
                 if (!myTurnHasPlayable && interactionState === 'normal') interactionState = 'blocked';
             }
 
@@ -1380,36 +1298,37 @@
 
                 p.buffer.forEach((card, bIndex) => {
                     let showFacedown = card.isFacedown;
+                    let isSelfFacedown = false;
+                    
                     if (gamePhase === 'setup' && isMe) showFacedown = false;
                     
-                    if (card.tempReveal) showFacedown = false;
+                    if (isMe && pIndex === activeTurn && interactionState !== 'gameover' && gamePhase === 'playing' && card.isFacedown) {
+                        showFacedown = false;
+                        isSelfFacedown = true;
+                    }
 
                     const cardEl = createCardDOM(card, showFacedown);
+                    if (isSelfFacedown) cardEl.classList.add('self-facedown');
                     
                     if (isMe && pIndex === activeTurn && interactionState !== 'gameover' && gamePhase === 'playing') {
                         let isPenaltyState = (interactionState === 'penalty' || interactionState === 'penalty_with_revert' || interactionState === 'blocked');
                         
-                        if (!p.mustReplace && !card.tempReveal) { 
-                            if (card.isFacedown) {
-                                if (!isPenaltyState || interactionState === 'blocked') {
-                                    cardEl.classList.add('glow-yellow'); cardEl.classList.add('clickable');
-                                    if (!cardEl.onclick) cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
-                                }
-                            } else {
-                                if (isPenaltyState) {
+                        if (!p.mustReplace) { 
+                            if (isPenaltyState) {
+                                if (!card.isFacedown) {
                                     cardEl.classList.add('glow-red'); cardEl.classList.add('penalty-target', 'clickable');
                                     cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
-                                } else {
-                                    if (isCardPlayable(card)) {
-                                        cardEl.classList.add('glow-green'); cardEl.classList.add('clickable'); 
-                                        if (interactionState === 'normal') {
-                                            cardEl.classList.add('draggable'); cardEl.draggable = true; cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
-                                            cardEl.ondragstart = (ev) => { dragCard(ev, pIndex, bIndex); setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); };
-                                            cardEl.ondragend = (ev) => { ev.target.style.opacity = '1'; };
-                                        }
-                                    } else {
-                                        cardEl.classList.add('glow-red');
+                                }
+                            } else {
+                                if (isCardPlayable(card)) {
+                                    cardEl.classList.add('glow-green'); cardEl.classList.add('clickable'); 
+                                    if (interactionState === 'normal') {
+                                        cardEl.classList.add('draggable'); cardEl.draggable = true; cardEl.onclick = (ev) => handleBufferClick(pIndex, bIndex, ev);
+                                        cardEl.ondragstart = (ev) => { dragCard(ev, pIndex, bIndex); setTimeout(() => { ev.target.style.opacity = '0.01'; }, 0); };
+                                        cardEl.ondragend = (ev) => { ev.target.style.opacity = '1'; };
                                     }
+                                } else {
+                                    cardEl.classList.add('glow-red');
                                 }
                             }
                         }
