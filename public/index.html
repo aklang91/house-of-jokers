@@ -262,8 +262,8 @@
         /* NY: Skuggning/mörkare bakgrund för ens egna "nedvända" men synliga kort */
         .self-facedown {
             background-color: #e0dcc7 !important; 
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 2px 2px 5px rgba(0,0,0,0.5) !important;
-            filter: brightness(0.85);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.3), 2px 2px 5px rgba(0,0,0,0.5) !important;
+            filter: brightness(0.92);
         }
 
         .glow-green { box-shadow: 0 0 8px 2px #2ecc71 !important; border: 2px solid #2ecc71 !important; }
@@ -400,6 +400,12 @@
                 padding: 8px !important; display: flex !important; flex-direction: column !important;
                 box-sizing: border-box !important; margin-bottom: 0 !important; flex: 1 !important;
                 justify-content: flex-start !important; 
+            }
+
+            .opponent-cards-container .buffer-section, 
+            .opponent-cards-container .hand-section {
+                justify-content: center !important;
+                align-items: center !important;
             }
 
             .my-hand-title, .playable-title-mobile, #myPlayerContainer h4 {
@@ -546,7 +552,7 @@
     <div id="waitingView" class="lobby-box">
         <img src="logo.png" alt="House of Jokers Logo" class="game-logo">
         <h3 id="waitingRoomName" style="color: #ffffff; padding-bottom: 5px; margin-bottom: 0;">Room name: </h3>
-        <h4 id="waitingRoomInfo" style="color: #f1c40f; border-bottom: 1px solid #d4af37; padding-bottom: 10px; margin-top: 5px;"></h4>
+        <h4 id="waitingRoomInfo" style="color: #ffffff; border-bottom: 1px solid #d4af37; padding-bottom: 10px; margin-top: 5px;"></h4>
         <h3 style="color: #ffffff; margin-top: 15px;">Connected players:</h3>
         <div id="waitingJoinMessages" style="margin: 10px 0; color: #ffffff; font-weight: bold; line-height: 1.5; font-style: normal;"></div>
         <h4 id="waitingText" style="color: #ffffff; margin-top: 15px;">Waiting for players...</h4>
@@ -883,7 +889,9 @@
 
         socket.on('roomUpdate', (room) => {
             document.getElementById('waitingRoomName').innerText = `Room name: ${room.roomName}`;
-            document.getElementById('waitingRoomInfo').innerText = `Difficulty: ${room.bufferSize} Action Cards | Jokers: ${room.totalJokers}`;
+            let diffStr = room.bufferSize === 4 ? 'Easy' : (room.bufferSize === 2 ? 'Hard' : 'Normal');
+            document.getElementById('waitingRoomInfo').innerText = `Difficulty: ${diffStr} | Jokers: ${room.totalJokers}`;
+            
             let playerListHTML = room.players.map(p => `<div>${p.name} joined the party.</div>`).join('');
             document.getElementById('waitingJoinMessages').innerHTML = playerListHTML;
 
@@ -1109,10 +1117,7 @@
 
             if (event && event.currentTarget && event.currentTarget.classList.contains('penalty-target')) {
                 interactionState = 'waiting'; 
-                if (cardToRevert) {
-                    socket.emit('flipCardAndRevert', { roomName: myRoomName, playerId: myPlayerId, pIndex, penaltyIndex: bIndex, revertIndex: cardToRevert.bIndex });
-                    cardToRevert = null;
-                } else socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
+                socket.emit('flipCard', { roomName: myRoomName, playerId: myPlayerId, pIndex, bIndex });
                 return;
             }
 
