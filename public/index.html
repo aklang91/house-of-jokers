@@ -215,6 +215,22 @@
         
         .playable-title-mobile { display: none; } 
 
+        /* LATEST MOVE TEXT (NY) */
+        .latest-move-text {
+            color: #ffffff;
+            font-family: 'Pirata One', display, cursive;
+            font-size: 20px;
+            margin-top: 10px;
+            padding: 8px 5px 0 5px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            border-top: 1px solid rgba(212, 175, 55, 0.4);
+            text-align: center;
+            letter-spacing: 1px;
+            line-height: 1.2;
+        }
+
         #board {
             position: relative; padding: 15px; border-radius: 10px;
             flex-basis: calc(50% - 10px); max-width: calc(50% - 10px); flex-grow: 1; margin: 0;
@@ -259,7 +275,7 @@
         }
         .facedown::after { display: none !important; }
         
-        /* NY: Skuggning/mörkare bakgrund för ens egna "nedvända" men synliga kort */
+        /* Skuggning/mörkare bakgrund för ens egna "nedvända" men synliga kort */
         .self-facedown {
             background-color: #e0dcc7 !important; 
             box-shadow: inset 0 0 15px rgba(0,0,0,0.3), 2px 2px 5px rgba(0,0,0,0.5) !important;
@@ -1391,6 +1407,13 @@
                 }
                 
                 handWrapper.appendChild(handSection); cardsContainer.appendChild(handWrapper); pDiv.appendChild(cardsContainer);
+
+                if (!isMe && p.latestMove) {
+                    const moveDiv = document.createElement('div');
+                    moveDiv.className = 'latest-move-text';
+                    moveDiv.innerText = `Latest move: ${p.latestMove}`;
+                    pDiv.appendChild(moveDiv);
+                }
 
                 if (isMe && gamePhase === 'setup' && !p.setupConfirmed) {
                     let confirmDisabled = setupSelection.buffer.length !== roomBufferSize ? 'disabled' : '';

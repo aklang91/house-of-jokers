@@ -102,6 +102,18 @@ function isCardPlayableServer(c, boardState) {
     return false;
 }
 
+function getCardString(c) {
+    let v = c.value;
+    if (v === 1) v = 'A'; else if (v === 11) v = 'J'; else if (v === 12) v = 'Q'; else if (v === 13) v = 'K';
+    return v + c.suit;
+}
+
+function addPlayerAction(player, actionStr) {
+    if (!player.currentTurnActions) player.currentTurnActions = [];
+    player.currentTurnActions.push(actionStr);
+    player.latestMove = player.currentTurnActions.join(" and ");
+}
+
 async function startRoundLogic(room) {
     room.gamePhase = 'setup';
     room.currentTurn = -1; 
@@ -211,7 +223,7 @@ io.on('connection', (socket) => {
         let tJokers = parseInt(jokerCount) || 3; 
         let isAiGame = (playWith === 'computer');
 
-        let playersArr = [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false, isBot: false }];
+        let playersArr = [{ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false, isBot: false, currentTurnActions: [], latestMove: "" }];
 
         if (isAiGame) {
             const botNames = ["Bot Bob", "Bot Alice", "Bot Charlie", "Bot Dave"];
@@ -220,7 +232,7 @@ io.on('connection', (socket) => {
                     id: 'bot_' + i + '_' + Date.now(),
                     name: botNames[i-1],
                     hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false,
-                    isBot: true
+                    isBot: true, currentTurnActions: [], latestMove: ""
                 });
             }
         }
@@ -258,7 +270,7 @@ io.on('connection', (socket) => {
         if (room.players.length >= room.maxPlayers) return callback({ success: false, msg: "The room is full!" });
         if (room.players.some(p => p.id === playerId)) return callback({ success: false, msg: "You are already in this room!"});
 
-        room.players.push({ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false, isBot: false });
+        room.players.push({ id: playerId, name: playerName, hand: [], buffer: [], mustReplace: false, replaceFacedown: false, setupConfirmed: false, isBot: false, currentTurnActions: [], latestMove: "" });
         
         room.markModified('players');
         await room.save();
@@ -298,6 +310,9 @@ io.on('connection', (socket) => {
             let maxHandSize = Math.max(...room.players.map(p => p.hand.length));
             let candidates = room.players.map((p, i) => p.hand.length === maxHandSize ? i : -1).filter(i => i !== -1);
             room.currentTurn = candidates[Math.floor(Math.random() * candidates.length)];
+            
+            room.players[room.currentTurn].currentTurnActions = [];
+            room.players[room.currentTurn].latestMove = "";
         }
         
         room.markModified('players');
@@ -359,6 +374,7 @@ io.on('connection', (socket) => {
         if(pIndex !== -1) {
             room.players[pIndex].buffer[data.bIndex].isFacedown = true;
             room.players[pIndex].buffer[data.bIndex].knownByAI = true; 
+            addPlayerAction(room.players[pIndex], "Turned down an action card");
             room.markModified('players');
             await room.save();
             await nextTurn(room); 
@@ -379,6 +395,7 @@ io.on('connection', (socket) => {
                 player.buffer[data.revertIndex].revealedThisTurn = false;
                 player.buffer[data.revertIndex].knownByAI = true; 
             }
+            addPlayerAction(player, "Turned down an action card");
             room.markModified('players');
             await room.save();
             await nextTurn(room);
@@ -429,6 +446,8 @@ io.on('connection', (socket) => {
 
             room.lastAction = { type: 'play', playerName: room.players[pIndex].name, card, side: toSide };
             room.lastActionTime = Date.now();
+            
+            addPlayerAction(room.players[pIndex], `Played ${getCardString(card)}`);
 
             let cardInBuff = room.players[pIndex].buffer[bIndex];
             let playedCardWasFacedown = cardInBuff.isFacedown || cardInBuff.revealedThisTurn;
@@ -495,7 +514,11 @@ io.on('connection', (socket) => {
 
         room.lastAction = { type: 'joker', playerName: room.players[pIndex].name, suit: toSuit, side: toSide };
         room.lastActionTime = Date.now();
-        room.markModified('boardState'); await room.save();
+        addPlayerAction(room.players[pIndex], "Moved a joker");
+        
+        room.markModified('boardState');
+        room.markModified('players');
+        await room.save();
         await nextTurn(room); callback({ success: true });
     });
 
@@ -524,6 +547,8 @@ io.on('connection', (socket) => {
                 }
                 
                 room.currentTurn = nextIndex;
+                room.players[room.currentTurn].currentTurnActions = [];
+                room.players[room.currentTurn].latestMove = "";
                 room.markModified('players'); 
                 
                 await room.save();
@@ -671,20 +696,12 @@ io.on('connection', (socket) => {
                 return nextBoard;
             };
 
-            const getCardStr = (c) => {
-                let v = c.value;
-                if (v === 1) v = 'A'; else if (v === 11) v = 'J'; else if (v === 12) v = 'Q'; else if (v === 13) v = 'K';
-                return v + c.suit;
-            };
-
             let myPlayableEngines = [];
             bot.buffer.forEach((c, bIndex) => {
                 let side = checkPlayability(c, room.boardState);
-                // Boten ser nu sina egna nedvända kort, så de utvärderas direkt!
                 if (side) myPlayableEngines.push({ card: c, bIndex, side, isFacedown: c.isFacedown });
             });
 
-            // ALLTID AKTIVT: Jokrarna är rörliga från start för AI:n också
             let jokersActive = true;
             
             let activeTeammates = [];
@@ -739,14 +756,12 @@ io.on('connection', (socket) => {
 
             if (bot.buffer.length === 1 && bot.hand.length === 0 && myPlayableEngines.length === 1) {
                 chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)} as their final action card!`;
+                tauntMsg = `${bot.name} plays ${getCardString(chosenAction.engine.card)} as their final action card!`;
             }
 
             if (!chosenAction && myPlayableEngines.length > 0) {
-                // SCENARIO B: KRISHANTERING
                 if (targetPlayerInCrisis) {
 
-                    // Prio B0: Eliminera en joker för att rädda vännen (BÄSTA DRAGET)
                     let jokerElimination = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
                         return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
                     });
@@ -755,19 +770,17 @@ io.on('connection', (socket) => {
                         tauntMsg = `${bot.name} permanently eliminates a joker to rescue a blocked teammate!`;
                     }
 
-                    // Prio B1: Rädda med kort
                     if (!chosenAction) {
                         for (let eng of myPlayableEngines) {
                             let nextBoard = simulatePlay(room.boardState, eng);
                             if (getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0) {
                                 chosenAction = { type: 'play', engine: eng }; 
-                                tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to rescue a blocked teammate.`;
+                                tauntMsg = `${bot.name} plays ${getCardString(eng.card)} to rescue a blocked teammate.`;
                                 break; 
                             }
                         }
                     }
 
-                    // Prio B2: Mellanhanden 
                     if (!chosenAction) {
                         let targetIndexInTeammates = activeTeammates.findIndex(t => t.id === targetPlayerInCrisis.id);
                         let intermediateTeammates = activeTeammates.slice(0, targetIndexInTeammates);
@@ -795,7 +808,6 @@ io.on('connection', (socket) => {
                         }
                     }
 
-                    // Prio B3: Joker-räddning (vanlig flytt)
                     if (!chosenAction && targetPlayerInCrisis) {
                         let jokerMove = findBestJokerMove(room.boardState, myPlayableEngines[0], (nextBoard) => {
                             return getOpenPlayableCount(targetPlayerInCrisis, nextBoard) > 0;
@@ -807,9 +819,7 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                // SCENARIO A: FREDSTID (Körs ALLTID om ingen action valdes i Kris-läget!)
                 if (!chosenAction) {
-                    // Prio A1: Själv-kombos
                     for (let eng of myPlayableEngines) {
                         let nextBoard = simulatePlay(room.boardState, eng);
                         let unlocksOwn = false;
@@ -822,27 +832,25 @@ io.on('connection', (socket) => {
 
                         if (unlocksOwn) { 
                             chosenAction = { type: 'play', engine: eng }; 
-                            tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to set up their next move.`;
+                            tauntMsg = `${bot.name} plays ${getCardString(eng.card)} to set up their next move.`;
                             break; 
                         }
                     }
                     
-                    // Prio A2: Assisten
                     if (!chosenAction && nextPlayer) {
                         for (let eng of myPlayableEngines) {
                             let nextBoard = simulatePlay(room.boardState, eng);
                             if (getOpenPlayableCount(nextPlayer, nextBoard) > getOpenPlayableCount(nextPlayer, room.boardState)) {
                                 chosenAction = { type: 'play', engine: eng }; 
-                                tauntMsg = `${bot.name} plays ${getCardStr(eng.card)} to give the next player more options.`;
+                                tauntMsg = `${bot.name} plays ${getCardString(eng.card)} to give the next player more options.`;
                                 break; 
                             }
                         }
                     }
 
-                    // Prio A3: Standard
                     if (!chosenAction) {
                         chosenAction = { type: 'play', engine: myPlayableEngines[0] };
-                        tauntMsg = `${bot.name} plays ${getCardStr(chosenAction.engine.card)}.`;
+                        tauntMsg = `${bot.name} plays ${getCardString(chosenAction.engine.card)}.`;
                     }
                 }
             }
@@ -855,7 +863,6 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // PANIK-LÄGE
             let faceupIndices = [];
             bot.buffer.forEach((c, i) => {
                 if (!c.isFacedown) faceupIndices.push(i);
@@ -900,7 +907,10 @@ io.on('connection', (socket) => {
 
         room.lastAction = { type: 'joker', playerName: bot.name, suit: to.suit, side: to.side };
         room.lastActionTime = Date.now();
+        addPlayerAction(bot, "Moved a joker");
+
         room.markModified('boardState'); 
+        room.markModified('players');
         await room.save();
         
         io.to(room.roomName).emit('boardUpdated', room); 
@@ -926,6 +936,7 @@ io.on('connection', (socket) => {
 
         room.lastAction = { type: 'play', playerName: bot.name, card: engine.card, side: engine.side };
         room.lastActionTime = Date.now();
+        addPlayerAction(bot, `Played ${getCardString(engine.card)}`);
 
         let playedCardWasFacedown = bot.buffer[engine.bIndex].isFacedown;
         bot.earnedExtraTurn = (engine.card.value === 1 || engine.card.value === 13);
@@ -996,6 +1007,8 @@ io.on('connection', (socket) => {
             bot.buffer[revertIndex].knownByAI = true; 
         }
 
+        addPlayerAction(bot, "Turned down an action card");
+
         room.markModified('players');
         await room.save();
         io.to(room.roomName).emit('boardUpdated', room); 
@@ -1020,7 +1033,6 @@ io.on('connection', (socket) => {
         if (playerIndex !== -1) { 
             let player = room.players[playerIndex];
             
-            // Ny logik för att avbryta rum om Host lämnar lobbyn
             if (room.gamePhase === 'waiting' && room.hostId === pIdToFind) {
                 room.players.forEach(p => { 
                     if (p.id !== player.id && !p.isBot) {
