@@ -5,7 +5,7 @@ self.addEventListener('push', function(event) {
     const options = {
         body: data.body || 'It is your turn!',
         icon: '/joker.jpg',
-        badge: '/joker.jpg',
+        badge: '/badge.png',
         vibrate: [200, 100, 200],
         tag: 'hoj-turn', // Förhindrar notis-spam genom att ersätta den gamla notisen
         renotify: true
