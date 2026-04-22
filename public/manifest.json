@@ -1,6 +1,6 @@
 {
   "name": "House of Jokers",
-  "short_name": "Jokers",
+  "short_name": "House of Jokers",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a5e2a",
