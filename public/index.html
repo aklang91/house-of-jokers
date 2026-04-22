@@ -446,6 +446,8 @@
             .radio-group span { padding: 8px !important; font-size: 14px !important; }
             dialog { width: 95% !important; padding: 15px !important; box-sizing: border-box; }
             dialog button { font-size: 16px !important; padding: 8px 12px !important; }
+
+            .latest-move-text { font-size: 16px !important; }
         }
 
         /* Modals */
@@ -694,7 +696,7 @@
         // =====================================
         // WEB PUSH LOGIK (ASYNKRONT SPEL)
         // =====================================
-        const PUBLIC_VAPID_KEY = 'BAkfBsBJnEK-5BFAxC_RZk7x-WPrSRk_gaSuatT7QCUl43ExpxgknYZFxFXdNV07ER7mBUMFoY4x7IxOT0pe3M4';
+        const PUBLIC_VAPID_KEY = 'BYT_UT_MOT_DIN_PUBLIKA_NYCKEL_HÄR';
 
         function urlB64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -1408,10 +1410,10 @@
                 
                 handWrapper.appendChild(handSection); cardsContainer.appendChild(handWrapper); pDiv.appendChild(cardsContainer);
 
-                if (!isMe && p.latestMove) {
+                if (!isMe) {
                     const moveDiv = document.createElement('div');
                     moveDiv.className = 'latest-move-text';
-                    moveDiv.innerText = `Latest move: ${p.latestMove}`;
+                    moveDiv.innerText = `Last move: ${p.latestMove || ""}`;
                     pDiv.appendChild(moveDiv);
                 }
 
