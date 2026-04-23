@@ -16,11 +16,7 @@
 
     <style>
         body {
-            background-color: #cacaca; 
-            background-image: url('background.jpg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
+            background-color: #cacaca;
             color: #212121; 
             text-align: center; margin: 0; padding: 10px;
             font-family: 'Fondamento', cursive, serif; 
@@ -31,6 +27,20 @@
             -moz-user-select: none; 
             -ms-user-select: none; 
             user-select: none; 
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('background.jpg');
+            background-size: cover;
+            background-position: center;
+            z-index: -2;
+            pointer-events: none; /* Ser till att den inte blockerar klick */
         }
 
         /* Tillåter fortfarande att man kan skriva i text- och rullgardinsmenyer */
