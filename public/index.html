@@ -1514,6 +1514,14 @@
             
             renderPlayers(); renderBoard();
         });
+
+        // Stäng instruktionerna vid klick på den mörka bakgrunden
+        const instructionsDialog = document.getElementById('instructionsDialog');
+        instructionsDialog.addEventListener('click', (event) => {
+            if (event.target === instructionsDialog) {
+                instructionsDialog.close();
+            }
+        });
     </script>
 </body>
 </html>
